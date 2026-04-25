@@ -1,9 +1,11 @@
 import './style.css'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
-  <header class="site-header">
+  <div class="bg-dots" aria-hidden="true"></div>
+
+  <header class="site-header reveal">
     <div class="brand">
-      <div class="brand-mark">△</div>
+      <span class="brand-mark">△</span>
       <span>青山ハック</span>
     </div>
     <nav>
@@ -13,78 +15,143 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <a href="#recruit">Recruit</a>
       <a href="#contact">Contact</a>
     </nav>
-    <button class="btn btn-primary">アプリを見る</button>
+    <button class="btn btn-primary">📱 アプリを見る</button>
   </header>
 
   <main>
-    <section class="hero">
-      <div class="hero-copy">
-        <h1>青山の学生生活を、<br />もっと使いやすく。</h1>
-        <p>
-          青山ハックは、履修・時間割・学事暦・学生生活情報を支える、
-          学生発の非公式プラットフォームです。
-        </p>
-        <div class="hero-actions">
-          <button class="btn btn-primary">アプリを見る</button>
-          <button class="btn btn-outline">団体について</button>
+    <section id="about" class="panel panel-hero reveal">
+      <div class="panel-copy">
+        <p class="point">Point 03</p>
+        <h1>探して、見つかる！<br />最強のシラバス検索</h1>
+        <p>学部・学科・開講期・対面/オンラインを絞り込み。あなたにぴったりの授業をすぐ見つけられます。</p>
+        <div class="chip-row">
+          <span>🔎 絞り込み検索</span>
+          <span>🔖 ブックマーク</span>
+          <span>⭐ レビュー確認</span>
         </div>
-        <small>※本サービスは青山学院大学公式のものではありません。</small>
       </div>
-      <div class="hero-phones" aria-label="app previews">
-        <div class="phone tilt-left"></div>
-        <div class="phone"></div>
-        <div class="phone tilt-right"></div>
+      <div class="mockup">
+        <div class="card search-card floating">
+          <h3>シラバス検索</h3>
+          <div class="mini-grid"><span>経営学部</span><span>対面</span><span>青山</span><span>前期</span></div>
+          <div class="search-box">授業名・教員名・キーワードを入力</div>
+        </div>
+        <div class="phone-card floating delay-2"></div>
       </div>
     </section>
 
-    <section class="stats">
-      <article><p>累計DL</p><strong>5,630+</strong></article>
-      <article><p>Instagram</p><strong>4,700+</strong></article>
-      <article><p>SNS総再生</p><strong>500万+</strong></article>
-      <article><p>運営</p><strong>学生チーム</strong></article>
+    <section id="app" class="panel panel-split reveal">
+      <div class="panel-copy">
+        <p class="point green">Point 04</p>
+        <h2>友だちの時間割を<br />かんたん共有＆比較！</h2>
+        <p>ワンタップ共有、比較表示、空きコマ探索まで。授業の組み合わせを視覚的にチェックできます。</p>
+        <div class="chip-row">
+          <span>👥 時間割共有</span>
+          <span>⚖️ 並べて比較</span>
+          <span>🔗 URL/QRで配布</span>
+        </div>
+      </div>
+      <div class="schedule-wrap">
+        <div class="card list-card">
+          <h3>友だちの時間割</h3>
+          <ul>
+            <li><b>さくら</b><span>比較中</span></li>
+            <li><b>ゆうと</b><span>比較する</span></li>
+            <li><b>りな</b><span>比較する</span></li>
+          </ul>
+        </div>
+        <div class="card timetable-card floating delay-1">
+          <h3>時間割を比較する</h3>
+          <div class="table-grid">
+            <span></span><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span>
+            <span>1</span><span class="c1"></span><span></span><span class="c2"></span><span></span><span class="c3"></span>
+            <span>2</span><span></span><span class="c4"></span><span></span><span class="c5"></span><span></span>
+            <span>3</span><span></span><span></span><span class="c6"></span><span></span><span class="c2"></span>
+          </div>
+        </div>
+      </div>
     </section>
 
-    <section id="about" class="about">
+    <section class="panel panel-duo reveal">
+      <div class="panel-copy">
+        <h2>学生生活を、<br />もっとスマートに管理。</h2>
+        <p>学事暦で全体の流れを把握し、単位状況をひと目でチェック。計画的に行動できます。</p>
+      </div>
+      <div class="duo-cards">
+        <article class="card blue-gradient floating">
+          <p class="point">Point 05</p>
+          <h3>学事暦</h3>
+          <p>授業開始日・試験・祝日をまとめて可視化。</p>
+        </article>
+        <article class="card green-gradient floating delay-1">
+          <p class="point green">Point 06</p>
+          <h3>単位管理</h3>
+          <p>取得単位、履修中、残り単位を自動集計。</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="media" class="panel reveal">
+      <div class="panel-copy">
+        <p class="point">Point 07</p>
+        <h2>学生生活情報・新歓/サークル情報</h2>
+      </div>
+      <div class="content-cards">
+        <article class="content-card"><div class="thumb"></div><h3>新歓潜入レポ</h3><p>先輩のリアルな声をチェック。</p></article>
+        <article class="content-card"><div class="thumb"></div><h3>サークル比較</h3><p>自分に合う活動を発見。</p></article>
+        <article class="content-card"><div class="thumb"></div><h3>施設の使い方</h3><p>図書館や学内設備を使いこなす。</p></article>
+        <article class="content-card"><div class="thumb"></div><h3>キャンパスの歩き方</h3><p>おすすめ導線と休憩スポット。</p></article>
+      </div>
+    </section>
+
+    <section class="panel panel-news reveal">
       <div>
-        <h2>青山ハックとは</h2>
-        <p>
-          学生目線の「困った」を、プロダクトとメディアで解決する学生プロジェクト。
-          学生生活をより便利にするため、日々改善を重ねています。
-        </p>
+        <p class="point">Point 08</p>
+        <h2>お知らせ・イベント・メディア発信</h2>
+        <div class="social-grid">
+          <span>Instagram</span><span>TikTok</span><span>YouTube</span><span>X</span>
+        </div>
       </div>
-      <div class="feature-grid">
-        <article><h3>アプリ開発</h3><p>履修・時間割・学事暦・単位管理をサポート。</p></article>
-        <article><h3>SNSメディア運営</h3><p>Instagram・TikTok・YouTubeで情報発信。</p></article>
-        <article><h3>学生生活情報の発信</h3><p>新歓・授業・施設・イベント情報を掲載。</p></article>
+      <div class="news-card card">
+        <h3>キャンパスニュース</h3>
+        <ul>
+          <li>05/18 新歓フェス2025 開催しました！</li>
+          <li>05/12 新入生向け資料を公開しました</li>
+          <li>05/01 YouTubeに新動画を公開！</li>
+          <li>04/28 学内スタンプラリー開催中！</li>
+        </ul>
       </div>
-    </section>
-
-    <section id="app" class="functions">
-      <h2>アプリでできること</h2>
-      <div class="function-grid">
-        <article><h3>シラバス検索</h3><p>条件を絞って素早く検索。</p></article>
-        <article><h3>時間割作成</h3><p>色分けして一目で管理。</p></article>
-        <article><h3>学事暦</h3><p>祝日や授業日を分かりやすく表示。</p></article>
-        <article><h3>単位管理</h3><p>進捗をグラフで見える化。</p></article>
+      <div class="event-card card floating delay-2">
+        <h3>注目イベント</h3>
+        <p>新歓フェス 2025<br />5.24(土) 10:00-16:00</p>
       </div>
     </section>
 
-    <section id="recruit" class="cta-grid">
-      <article class="cta cta-blue">
-        <h2>メンバー募集中</h2>
-        <p>開発・デザイン・SNS・企画・営業など、仲間を募集しています。</p>
+    <section id="recruit" class="recruit reveal">
+      <h2>メンバー募集中！</h2>
+      <p>企画・運営・発信など、一緒に青学生活をアップデートする仲間を探しています。</p>
+      <div>
         <button class="btn btn-primary">参加する</button>
-      </article>
-      <article id="contact" class="cta cta-green">
-        <h2>企業・団体の方へ</h2>
-        <p>タイアップ・インターン告知・イベント協賛などご相談ください。</p>
-        <button class="btn btn-success">お問い合わせ</button>
-      </article>
+        <button id="contact" class="btn btn-secondary">お問い合わせ</button>
+      </div>
     </section>
   </main>
 
   <footer>
-    <div class="brand"><div class="brand-mark">△</div><span>青山ハック</span></div>
-    <p>© 2026 青山ハック All Rights Reserved.</p>
+    <p>© 青山ハック | 青山学院大学公認の学生支援・情報発信プラットフォーム</p>
+    <a href="#top">TOP ↑</a>
   </footer>
 `
+
+const revealElements = document.querySelectorAll<HTMLElement>('.reveal')
+const observer = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible')
+      }
+    })
+  },
+  { threshold: 0.18 }
+)
+revealElements.forEach((element) => observer.observe(element))
