@@ -1,8 +1,8 @@
 import './style.css'
-import { siteLayoutMarkup } from './components/SiteLayout'
+import { getSiteLayoutMarkup } from './components/SiteLayout'
 import { splashMarkup, startSplashTransition } from './components/SplashScreen'
 
-document.querySelector<HTMLDivElement>('#app')!.innerHTML = `${splashMarkup}${siteLayoutMarkup}`
+document.querySelector<HTMLDivElement>('#app')!.innerHTML = `${splashMarkup}${getSiteLayoutMarkup(window.location.pathname)}`
 
 startSplashTransition()
 

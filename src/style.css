@@ -25,11 +25,11 @@ body { margin: 0; overflow-x: hidden; }
 
 .site-header, main, footer { width: min(1320px, calc(100% - 56px)); margin-inline: auto; }
 .site-header { position: sticky; top: 8px; z-index: 10; margin-top: 8px; height: 68px; padding: 0 20px; border: 1px solid #e2ebff; border-radius: 18px; background: rgba(255,255,255,.78); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: space-between; }
-.brand { font-size: 2rem; font-weight: 800; color: #1d56d8; text-decoration: none; margin: 0; }
-nav { display: flex; gap: 34px; }
-nav a { color: #173264; text-decoration: none; font-weight: 700; }
+.brand { font-size: 1.9rem; font-weight: 800; color: #18c77a; text-decoration: none; margin: 0; }
+nav { display: flex; gap: 28px; }
+nav a { color: #173264; text-decoration: none; font-weight: 650; font-size: 1.02rem; }
 
-.btn { border: 0; border-radius: 999px; padding: 13px 24px; font-weight: 700; cursor: pointer; }
+.btn { border: 0; border-radius: 999px; padding: 13px 24px; font-weight: 700; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
 .btn-primary { color: #fff; background: linear-gradient(120deg, #146dff, #2252ff); box-shadow: 0 10px 20px rgba(22,83,247,.24); }
 .btn-ghost { background: #fff; color: #173264; border: 1px solid #c8d8ff; }
 
@@ -37,7 +37,8 @@ main { padding: 20px 0 54px; display: grid; gap: 24px; }
 .hero, .feature, .expand { border-radius: 32px; border: 1px solid #e5edff; background: #fff; box-shadow: 0 14px 36px rgba(24,51,118,.08); }
 .hero { min-height: 680px; display: grid; grid-template-columns: 1.1fr 1fr; align-items: center; padding: 70px; position: relative; overflow: hidden; }
 .hero::before { content:''; position:absolute; inset:auto -10% -35% auto; width: 540px; height:540px; border-radius:50%; background: radial-gradient(circle, rgba(90,154,255,.22), rgba(90,154,255,0) 72%); }
-.hero h1 { font-size: clamp(3rem, 5vw, 5.4rem); line-height: 1.12; margin: 0 0 16px; }
+.hero h1 { font-size: clamp(2.4rem, 4.1vw, 4.2rem); line-height: 1.26; letter-spacing: -.02em; margin: 0 0 16px; max-width: 11.5ch; }
+.hero h1 span { white-space: nowrap; }
 .hero p { font-size: 1.35rem; max-width: 620px; color: #304979; margin: 0 0 26px; line-height: 1.8; }
 .hero-actions { display: flex; gap: 14px; }
 .hero-visual { position: relative; display: grid; place-items: center; }
@@ -79,6 +80,11 @@ main { padding: 20px 0 54px; display: grid; gap: 24px; }
 .metrics small { color: #50618a; font-size: 1rem; }
 .cta-row { margin-top: 18px; display: flex; gap: 14px; justify-content: center; }
 
+
+.simple-page { min-height: 58vh; border-radius: 28px; border: 1px solid #e5edff; background: #fff; box-shadow: 0 14px 36px rgba(24,51,118,.08); padding: 64px; display: grid; align-content: center; gap: 14px; }
+.simple-page h1 { font-size: clamp(2.2rem, 4vw, 3.2rem); margin: 0; }
+.simple-page p { font-size: 1.2rem; color: #415580; margin: 0 0 10px; }
+
 footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; gap: 20px; }
 .links, .sns { display: flex; gap: 20px; justify-content: center; }
 .links a, .sns a { color: #344974; text-decoration: none; }
@@ -103,6 +109,8 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 @media (max-width: 1100px) {
   nav { display: none; }
   .hero, .feature { grid-template-columns: 1fr; }
+  .hero h1 { max-width: none; }
+  .hero h1 span { white-space: normal; }
   .expand-grid, .metrics, footer { grid-template-columns: 1fr; }
   .links, .sns, .cta-row { justify-content: flex-start; flex-wrap: wrap; }
 }
