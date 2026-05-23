@@ -1,6 +1,8 @@
 import './style.css'
 import { getSiteLayoutMarkup } from './components/SiteLayout'
 import { SITE_SHELL_ID, splashMarkup, startSplashTransition } from './components/SplashScreen'
+import { onUserChange, signInWithGoogle, signOutUser } from './auth'
+import { renderMyPage } from './components/MyPage'
 
 const pathname = window.location.pathname
 const shouldShowSplash = pathname === '/'
@@ -359,3 +361,22 @@ recruitMailto?.addEventListener('click', async (event) => {
     recruitMailto.removeAttribute('aria-disabled')
   }
 })
+
+// マイページの認証処理
+if (pathname === '/mypage') {
+  onUserChange((user) => {
+    renderMyPage(user).then(() => {
+      // ログインボタン
+      document.getElementById('mypage-signin-btn')?.addEventListener('click', () => {
+        signInWithGoogle().catch((err) => {
+          console.error('sign-in error', err)
+          window.alert('ログインに失敗しました。もう一度お試しください。')
+        })
+      })
+      // ログアウトボタン
+      document.getElementById('mypage-signout-btn')?.addEventListener('click', () => {
+        signOutUser()
+      })
+    })
+  })
+}

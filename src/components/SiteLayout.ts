@@ -1,5 +1,6 @@
 import { APP_STORE_URL } from '../constants/links'
 import { SITE_SHELL_ID } from './SplashScreen'
+import { mypageMarkup } from './MyPage'
 
 const navItems = [
   { href: '/about', label: 'About' },
@@ -8,6 +9,7 @@ const navItems = [
   { href: '/business', label: 'Business' },
   { href: '/recruit', label: 'Recruit' },
   { href: '/contact', label: 'Contact' },
+  { href: '/mypage', label: '時間割' },
 ]
 
 const socialLinks = [
@@ -28,13 +30,14 @@ const socialLinks = [
   },
 ]
 
-const pages: Record<string, { title: string; description: string; legal?: boolean }> = {
+const pages: Record<string, { title: string; description: string; legal?: boolean; mypage?: boolean }> = {
   '/about': { title: 'About', description: '青山ハックについて' },
   '/app': { title: 'App', description: '青山ハックのアプリについて' },
   '/media': { title: 'Media', description: '青山ハックのメディア活動について' },
   '/business': { title: 'Business', description: '企業向けの提携・掲載・PRについて' },
   '/recruit': { title: 'Recruit', description: '一緒に活動するメンバーを募集しています' },
   '/contact': { title: 'Contact', description: 'お問い合わせはこちら' },
+  '/mypage': { title: 'マイページ', description: '時間割', mypage: true },
   '/privacy-policy': { title: 'プライバシーポリシー', description: '青山ハックにおけるユーザー情報および個人情報の取扱いについて', legal: true },
   '/terms': { title: '利用規約', description: '青山ハックの利用条件について', legal: true },
 }
@@ -929,6 +932,7 @@ const pageMarkup = (pathname: string) => {
   if (pathname === '/business') return businessPageMarkup
   if (pathname === '/recruit') return recruitPageMarkup
   if (pathname === '/contact') return contactPageMarkup
+  if (pathname === '/mypage') return mypageMarkup()
 
   return legalPageMarkup(pages[pathname] ?? pages['/privacy-policy'], pathname)
 }
