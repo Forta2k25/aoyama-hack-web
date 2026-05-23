@@ -11,6 +11,7 @@ export interface Course {
   category?: string
   syllabusURL?: string
   colorKey?: string
+  firestoreDocID?: string
 }
 
 export interface TimetableSlot {
@@ -64,6 +65,7 @@ export async function fetchTimetable(uid: string): Promise<TimetableSlot[]> {
         category: m['category'] as string | undefined,
         syllabusURL: m['syllabusURL'] as string | undefined,
         colorKey: m['colorKey'] as string | undefined,
+        firestoreDocID: m['firestoreDocID'] as string | undefined,
       },
     })
   }
@@ -87,3 +89,48 @@ const COLOR_MAP: Record<string, string> = {
 
 export const slotColor = (key?: string) => (key ? (COLOR_MAP[key] ?? '#f0f0f0') : '#f0f0f0')
 export const dayName = (day: number) => DAY_NAMES[day] ?? ''
+
+export interface CourseDetail {
+  evalMethod?: string
+  grade?: string
+  term?: string
+  credit?: string
+  registrationNumber?: string
+  syllabusURL?: string
+}
+
+function toDetail(d: Record<string, unknown>): CourseDetail {
+  return {
+    evalMethod: d['eval_method'] as string | undefined,
+    grade: d['grade'] as string | undefined,
+    term: d['term'] as string | undefined,
+    credit: d['credit'] != null ? String(d['credit']) : undefined,
+    registrationNumber: (d['registration_number'] ?? d['code'] ?? d['class_code']) as string | undefined,
+    syllabusURL: (d['url'] ?? d['syllabusURL']) as string | undefined,
+  }
+}
+
+export async function fetchCourseDetail(course: Course): Promise<CourseDetail> {
+  const { doc, getDoc, collection, query, where, limit, getDocs } = await import('firebase/firestore')
+  const { db } = await import('./firebase')
+
+  // firestoreDocID が分かっている場合は直接取得
+  if (course.firestoreDocID) {
+    const snap = await getDoc(doc(db, 'classes', course.firestoreDocID))
+    if (snap.exists()) return toDetail(snap.data() as Record<string, unknown>)
+  }
+
+  // なければ授業名＋教員名でクエリ
+  if (course.title && course.teacher) {
+    const q = query(
+      collection(db, 'classes'),
+      where('class_name', '==', course.title),
+      where('teacher_name', '==', course.teacher),
+      limit(1)
+    )
+    const snap = await getDocs(q)
+    if (!snap.empty) return toDetail(snap.docs[0].data() as Record<string, unknown>)
+  }
+
+  return {}
+}

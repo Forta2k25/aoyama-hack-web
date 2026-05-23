@@ -362,21 +362,30 @@ recruitMailto?.addEventListener('click', async (event) => {
   }
 })
 
-// マイページの認証処理
-if (pathname === '/mypage') {
-  onUserChange((user) => {
+// ヘッダーのログインボタンを認証状態に応じて更新（全ページ共通）
+const headerAuthBtn = document.querySelector<HTMLAnchorElement>('[data-header-auth-btn]')
+onUserChange((user) => {
+  if (headerAuthBtn) {
+    if (user) {
+      headerAuthBtn.textContent = 'マイページ'
+      headerAuthBtn.href = '/mypage'
+    } else {
+      headerAuthBtn.textContent = 'ログイン'
+      headerAuthBtn.href = '/mypage'
+    }
+  }
+
+  // /mypage の場合は時間割を描画
+  if (pathname === '/mypage') {
     renderMyPage(user).then(() => {
-      // ログインボタン
       document.getElementById('mypage-signin-btn')?.addEventListener('click', () => {
-        signInWithGoogle().catch((err) => {
-          console.error('sign-in error', err)
-          window.alert('ログインに失敗しました。もう一度お試しください。')
-        })
+        signInWithGoogle()
+          .then(() => { window.location.href = '/mypage' })
+          .catch(() => { window.alert('ログインに失敗しました。もう一度お試しください。') })
       })
-      // ログアウトボタン
       document.getElementById('mypage-signout-btn')?.addEventListener('click', () => {
-        signOutUser()
+        signOutUser().then(() => { window.location.href = '/' })
       })
     })
-  })
-}
+  }
+})

@@ -57,6 +57,10 @@ body.menu-open { overflow: hidden; }
 .menu-social { display: flex; gap: 12px; margin-top: 8px; }
 .menu-social .social-link { color: #173264; border-color: rgba(255,255,255,.55); }
 
+.header-right { display: flex; align-items: center; gap: 10px; }
+.header-login-btn { font-size: 0.82rem; font-weight: 700; color: var(--brand-green); text-decoration: none; padding: 7px 14px; border: 1.5px solid rgba(0,122,94,.35); border-radius: 999px; white-space: nowrap; transition: background .18s, border-color .18s; }
+.header-login-btn:hover { background: rgba(0,122,94,.06); border-color: var(--brand-green); }
+
 .btn { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 999px; padding: 13px 24px; font-weight: 700; cursor: pointer; text-decoration: none; }
 .btn-primary { color: #fff; background: linear-gradient(120deg, #146dff, #2252ff); box-shadow: 0 10px 20px rgba(22,83,247,.24); }
 .btn-ghost { background: #fff; color: #173264; border: 1px solid #c8d8ff; }
@@ -524,10 +528,11 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   border-radius: 12px;
   overflow: hidden;
   font-size: 0.82rem;
+  table-layout: fixed;
 }
 .tt-corner {
   background: #f5f5f5;
-  width: 36px;
+  width: 32px;
 }
 .tt-day-header {
   background: #f5f5f5;
@@ -548,28 +553,218 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 }
 .tt-cell {
   vertical-align: top;
-  padding: 8px 6px;
   border-left: 1px solid #eee;
   border-top: 1px solid #eee;
-  min-width: 80px;
-  min-height: 72px;
+  min-width: 88px;
+  padding: 0;
 }
-.tt-cell-empty {
-  min-height: 72px;
-  background: #fafafa;
+.tt-cell-inner {
+  height: 88px;
+  padding: 8px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
 }
+.tt-cell-empty { background: #fafafa; }
+.tt-cell-filled { cursor: pointer; transition: filter .15s; }
+.tt-cell-filled:hover { filter: brightness(0.95); }
+.tt-cell-filled:focus-visible { outline: 2px solid #2d8067; outline-offset: -2px; }
 .tt-title {
   display: block;
   font-weight: 600;
-  line-height: 1.35;
+  line-height: 1.3;
   color: #222;
-  font-size: 0.8rem;
+  font-size: 0.79rem;
+  overflow-wrap: break-word;
+  word-break: break-all;
 }
 .tt-room {
   display: block;
-  margin-top: 4px;
   color: #666;
-  font-size: 0.72rem;
+  font-size: 0.71rem;
+}
+
+/* デスクトップ: サイドパネルレイアウト */
+.mypage-layout {
+  display: flex;
+  align-items: flex-start;
+}
+.tt-main {
+  flex: 1;
+  min-width: 0;
+}
+.course-side-panel {
+  width: 360px;
+  max-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: max-width 0.32s cubic-bezier(.2,.8,.3,1), margin-right 0.32s cubic-bezier(.2,.8,.3,1);
+  position: sticky;
+  top: 88px;
+}
+.course-side-panel.is-open {
+  max-width: 360px;
+  margin-right: 20px;
+  overflow: visible;
+}
+.course-side-inner {
+  width: 360px;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 28px rgba(10,20,50,.12);
+  padding: 32px 24px 28px;
+  position: relative;
+}
+.course-side-panel.is-open .course-side-inner {
+  animation: slideInPanel 0.32s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes slideInPanel {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: none; }
+}
+.course-side-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: #f0f0f0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.course-side-close span {
+  position: absolute;
+  width: 14px;
+  height: 2px;
+  background: #555;
+  border-radius: 2px;
+}
+.course-side-close span:first-child { transform: rotate(45deg); }
+.course-side-close span:last-child  { transform: rotate(-45deg); }
+@media (max-width: 799px) {
+  .course-side-panel { display: none !important; }
+}
+
+/* 授業詳細モーダル */
+body.modal-open { overflow: hidden; }
+.course-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(10,20,50,.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  backdrop-filter: blur(3px);
+  animation: fadeInOverlay .18s ease;
+}
+.course-modal-overlay[hidden] { display: none; }
+@keyframes fadeInOverlay { from { opacity: 0 } to { opacity: 1 } }
+.course-modal-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 40px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(10,20,50,.18);
+  animation: slideUpCard .22s cubic-bezier(.2,.8,.3,1);
+}
+@keyframes slideUpCard { from { transform: translateY(16px); opacity: 0 } to { transform: none; opacity: 1 } }
+.course-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: #f0f0f0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.course-modal-close span {
+  position: absolute;
+  width: 16px;
+  height: 2px;
+  background: #555;
+  border-radius: 2px;
+}
+.course-modal-close span:first-child { transform: rotate(45deg); }
+.course-modal-close span:last-child  { transform: rotate(-45deg); }
+.course-modal-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 20px;
+  padding-right: 24px;
+  color: #132856;
+}
+.course-detail-list { margin: 0 0 20px; padding: 0; display: grid; gap: 10px; }
+.course-detail-row { display: flex; gap: 12px; }
+.course-detail-row dt { font-size: 0.78rem; color: #888; min-width: 72px; padding-top: 2px; }
+.course-detail-row dd { margin: 0; font-size: 0.9rem; font-weight: 600; color: #222; }
+.course-syllabus-link { font-size: 0.88rem; padding: 10px 20px; }
+
+.course-loading-center { display: flex; justify-content: center; padding: 32px 0; }
+
+/* info chips */
+.info-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.info-chip { font-size: 0.78rem; font-weight: 600; padding: 5px 10px; background: #f0f4f8; border-radius: 999px; color: #333; white-space: nowrap; }
+
+/* セクション共通 */
+.course-section { margin-top: 20px; padding-top: 18px; border-top: 1px solid #eee; }
+.course-section-label { font-size: 0.72rem; font-weight: 700; color: #888; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+.course-section-text { font-size: 0.88rem; line-height: 1.75; color: #333; margin: 0; }
+
+/* 成績評価バー */
+.eval-bar { height: 10px; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 12px; }
+.eval-legend { display: flex; flex-direction: column; gap: 6px; }
+.eval-legend-item { display: flex; align-items: baseline; gap: 6px; font-size: 0.82rem; }
+.eval-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.eval-legend-name { font-weight: 600; color: #222; }
+.eval-legend-pct { font-weight: 700; font-size: 0.9rem; margin-left: auto; padding-left: 8px; }
+.eval-legend-desc { color: #777; font-size: 0.76rem; flex-basis: 100%; padding-left: 15px; }
+
+/* 授業計画 */
+.lecture-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.lecture-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 0.84rem; color: #444; }
+.lecture-item--current { background: #f0faf5; font-weight: 600; color: #1a6048; }
+.lecture-num { min-width: 20px; font-weight: 700; color: #aaa; font-size: 0.78rem; padding-top: 1px; flex-shrink: 0; }
+.lecture-item--current .lecture-num { color: #2d8067; }
+.lecture-text { flex: 1; line-height: 1.5; }
+.lecture-now-badge { font-size: 0.68rem; font-weight: 700; background: #2d8067; color: #fff; padding: 2px 7px; border-radius: 999px; flex-shrink: 0; align-self: center; }
+
+/* 授業方法チップ */
+.method-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.method-chip { font-size: 0.78rem; padding: 5px 10px; border: 1px solid #ddd; border-radius: 8px; color: #555; background: #fafafa; }
+.method-chip--active { background: #e8f5f0; border-color: #2d8067; color: #1a6048; font-weight: 600; }
+
+/* 教科書 */
+.book-item { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.book-num { min-width: 18px; font-size: 0.78rem; color: #aaa; font-weight: 700; padding-top: 2px; }
+.book-title { font-size: 0.86rem; font-weight: 600; color: #222; }
+.book-author { display: block; font-size: 0.76rem; color: #777; margin-top: 2px; }
+
+/* シラバス外部リンク */
+.course-syllabus-ext { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; color: #2d8067; text-decoration: none; margin-top: 20px; padding-top: 18px; border-top: 1px solid #eee; width: 100%; font-weight: 600; }
+.course-syllabus-ext:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .course-modal-card { padding: 28px 24px; border-radius: 16px; }
+  .tt-cell { min-width: 72px; }
+  .tt-cell-inner { height: 80px; padding: 6px; }
 }
 
 /* エラー・空状態 */

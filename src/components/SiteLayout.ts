@@ -9,7 +9,6 @@ const navItems = [
   { href: '/business', label: 'Business' },
   { href: '/recruit', label: 'Recruit' },
   { href: '/contact', label: 'Contact' },
-  { href: '/mypage', label: '時間割' },
 ]
 
 const socialLinks = [
@@ -203,9 +202,12 @@ const renderStepList = (items: string[]) =>
 const headerMarkup = (pathname: string) => `
   <header class="site-header">
     <a class="brand" href="/">青山ハック</a>
-    <button class="menu-toggle" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="site-menu" data-menu-toggle>
-      <span></span><span></span><span></span>
-    </button>
+    <div class="header-right">
+      <a class="header-login-btn" href="/mypage" data-header-auth-btn aria-label="ログイン">ログイン</a>
+      <button class="menu-toggle" type="button" aria-label="メニューを開く" aria-expanded="false" aria-controls="site-menu" data-menu-toggle>
+        <span></span><span></span><span></span>
+      </button>
+    </div>
   </header>
   <div id="site-menu" class="menu-panel" aria-hidden="true" data-menu-panel>
     <div class="menu-card" role="dialog" aria-modal="true" aria-label="サイトメニュー">

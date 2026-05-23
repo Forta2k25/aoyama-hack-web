@@ -1,8 +1,214 @@
 import { type AuthUser } from '../auth'
-import { fetchTimetable, termLabel, slotColor, dayName, type TimetableSlot } from '../timetable'
+import { fetchTimetable, fetchCourseDetail, termLabel, slotColor, dayName, type TimetableSlot } from '../timetable'
+import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../syllabus'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
+
+function courseDetailModalMarkup() {
+  return `
+    <div class="course-modal-overlay" id="course-modal" aria-modal="true" role="dialog" hidden>
+      <div class="course-modal-card">
+        <button class="course-modal-close" id="course-modal-close" aria-label="閉じる">
+          <span></span><span></span>
+        </button>
+        <div class="course-modal-body" id="course-modal-body"></div>
+      </div>
+    </div>
+  `
+}
+
+// 成績評価バー
+function evalBarMarkup(items: EvalItem[]): string {
+  if (!items.length) return ''
+  const COLORS = ['#2d8067', '#f5a623', '#4a90e2', '#9b59b6', '#e74c3c']
+  const bar = items.map((it, i) => {
+    const pct = parseFloat(it.percent) || 0
+    return `<div style="width:${pct}%;background:${COLORS[i % COLORS.length]};height:100%;"></div>`
+  }).join('')
+  const legend = items.map((it, i) => `
+    <div class="eval-legend-item">
+      <span class="eval-dot" style="background:${COLORS[i % COLORS.length]}"></span>
+      <span class="eval-legend-name">${it.name}</span>
+      <span class="eval-legend-pct" style="color:${COLORS[i % COLORS.length]}">${it.percent}</span>
+      ${it.description ? `<span class="eval-legend-desc">${it.description}</span>` : ''}
+    </div>`).join('')
+  return `
+    <div class="course-section">
+      <p class="course-section-label">成績評価</p>
+      <div class="eval-bar">${bar}</div>
+      <div class="eval-legend">${legend}</div>
+    </div>`
+}
+
+// 授業計画リスト（現在週ハイライト）
+function lecturePlanMarkup(items: string[], currentWeek: number): string {
+  if (!items.length) return ''
+  const rows = items.map((item) => {
+    const match = item.match(/^(\d+)\.\s*(.+)$/)
+    if (!match) return `<li class="lecture-item">${item}</li>`
+    const num = parseInt(match[1], 10)
+    const text = match[2]
+    const isCurrent = num === currentWeek
+    return `<li class="lecture-item${isCurrent ? ' lecture-item--current' : ''}">
+      <span class="lecture-num">${num}</span>
+      <span class="lecture-text">${text}</span>
+      ${isCurrent ? '<span class="lecture-now-badge">今週</span>' : ''}
+    </li>`
+  }).join('')
+  return `
+    <div class="course-section">
+      <p class="course-section-label">授業計画</p>
+      <ol class="lecture-list">${rows}</ol>
+    </div>`
+}
+
+// テキストセクション
+function textSection(label: string, text: string | undefined): string {
+  if (!text) return ''
+  return `<div class="course-section">
+    <p class="course-section-label">${label}</p>
+    <p class="course-section-text">${text.replace(/\n/g, '<br>')}</p>
+  </div>`
+}
+
+// 授業方法チップ
+function methodChipsMarkup(methods: SyllabusContent['methods']): string {
+  if (!methods.length) return ''
+  const chips = methods.map((m) =>
+    `<span class="method-chip${m.checked ? ' method-chip--active' : ''}">${m.checked ? '✓ ' : ''}${m.name}</span>`
+  ).join('')
+  return `<div class="course-section">
+    <p class="course-section-label">活用される授業方法</p>
+    <div class="method-chips">${chips}</div>
+  </div>`
+}
+
+// 教科書リスト
+function booksMarkup(label: string, books: SyllabusContent['textbooks']): string {
+  if (!books.length) return ''
+  const items = books.map((b, i) =>
+    `<div class="book-item"><span class="book-num">${i + 1}</span>
+      <div><span class="book-title">『${b.title}』</span>
+      ${b.author ? `<small class="book-author">${b.author}</small>` : ''}</div>
+    </div>`
+  ).join('')
+  return `<div class="course-section">
+    <p class="course-section-label">${label}</p>
+    ${items}
+  </div>`
+}
+
+function currentWeekNumber(): number {
+  // 4/1 を前期第1週の起点として計算
+  const now = new Date()
+  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
+  const semesterStart = new Date(year, 3, 1)
+  const diff = Math.floor((now.getTime() - semesterStart.getTime()) / (7 * 24 * 60 * 60 * 1000))
+  return Math.max(1, Math.min(15, diff + 1))
+}
+
+function courseDetailBodyMarkup(
+  course: import('../timetable').Course,
+  detail?: import('../timetable').CourseDetail,
+  syllabus?: SyllabusContent | null,
+  loading = false
+): string {
+  const chips = [
+    course.teacher && `<span class="info-chip">担当教員：${course.teacher}</span>`,
+    detail?.grade  && `<span class="info-chip">年度：${detail.grade}</span>`,
+    detail?.term   && `<span class="info-chip">学期：${detail.term}</span>`,
+    (course.credits ?? detail?.credit) != null
+      && `<span class="info-chip">単位：${course.credits ?? detail?.credit}単位</span>`,
+    course.room    && `<span class="info-chip">教室：${course.room}</span>`,
+  ].filter(Boolean).join('')
+
+  const syllabusURL = course.syllabusURL || detail?.syllabusURL || ''
+  const syllabusLink = syllabusURL
+    ? `<a class="course-syllabus-ext" href="${syllabusURL}" target="_blank" rel="noopener noreferrer">ブラウザで全文を見る ↗</a>`
+    : ''
+
+  if (loading) {
+    return `
+      <h2 class="course-modal-title">${course.title}</h2>
+      <div class="info-chips">${chips}</div>
+      <div class="course-loading-center"><span class="mypage-spinner" style="width:24px;height:24px;border-width:2px"></span></div>
+    `
+  }
+
+  const week = currentWeekNumber()
+  return `
+    <h2 class="course-modal-title">${course.title}</h2>
+    <div class="info-chips">${chips}</div>
+    ${syllabus ? evalBarMarkup(syllabus.evalItems) : (detail?.evalMethod ? `<div class="course-section"><p class="course-section-label">成績評価方法</p><p class="course-section-text">${detail.evalMethod.replace(/\n/g, '<br>')}</p></div>` : '')}
+    ${syllabus ? lecturePlanMarkup(syllabus.lectureItems, week) : ''}
+    ${syllabus ? textSection('講義概要', syllabus.outline) : ''}
+    ${syllabus ? textSection('達成目標', syllabus.objective) : ''}
+    ${syllabus ? methodChipsMarkup(syllabus.methods) : ''}
+    ${syllabus ? booksMarkup('教科書', syllabus.textbooks) : ''}
+    ${syllabus ? booksMarkup('参考書', syllabus.refs) : ''}
+    ${syllabusLink}
+  `
+}
+
+export function openCourseModal(course: import('../timetable').Course) {
+  if (window.innerWidth >= 800) {
+    const panel = document.getElementById('course-side-panel')
+    const body = document.getElementById('course-side-body')
+    if (!panel || !body) return
+
+    body.innerHTML = courseDetailBodyMarkup(course, undefined, undefined, true)
+    panel.classList.add('is-open')
+
+    fetchCourseDetail(course)
+      .then(async (detail) => {
+        if (!panel.classList.contains('is-open')) return
+        const syllabusURL = course.syllabusURL || detail.syllabusURL || ''
+        const syllabus = await fetchAndParseSyllabus(syllabusURL)
+        if (panel.classList.contains('is-open')) {
+          body.innerHTML = courseDetailBodyMarkup(course, detail, syllabus, false)
+        }
+      })
+      .catch(() => {
+        if (panel.classList.contains('is-open')) {
+          body.innerHTML = courseDetailBodyMarkup(course, undefined, null, false)
+        }
+      })
+  } else {
+    const modal = document.getElementById('course-modal') as HTMLElement | null
+    const body = document.getElementById('course-modal-body')
+    if (!modal || !body) return
+
+    body.innerHTML = courseDetailBodyMarkup(course, undefined, undefined, true)
+    modal.hidden = false
+    document.body.classList.add('modal-open')
+    ;(modal.querySelector('.course-modal-close') as HTMLElement | null)?.focus()
+
+    fetchCourseDetail(course)
+      .then(async (detail) => {
+        if (modal.hidden) return
+        const syllabusURL = course.syllabusURL || detail.syllabusURL || ''
+        const syllabus = await fetchAndParseSyllabus(syllabusURL)
+        if (!modal.hidden) {
+          body.innerHTML = courseDetailBodyMarkup(course, detail, syllabus, false)
+        }
+      })
+      .catch(() => {
+        if (!modal.hidden) {
+          body.innerHTML = courseDetailBodyMarkup(course, undefined, null, false)
+        }
+      })
+  }
+}
+
+export function closeCourseModal() {
+  const modal = document.getElementById('course-modal') as HTMLElement | null
+  if (modal) {
+    modal.hidden = true
+    document.body.classList.remove('modal-open')
+  }
+  document.getElementById('course-side-panel')?.classList.remove('is-open')
+}
 
 function loginMarkup() {
   return `
@@ -57,13 +263,18 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
   const rows = periods.map((p) => {
     const cells = days.map((d) => {
       const slot = grid[`${d}-${p}`]
-      if (!slot) return `<td class="tt-cell tt-cell-empty"></td>`
+      if (!slot) {
+        return `<td class="tt-cell tt-cell-empty"><div class="tt-cell-inner"></div></td>`
+      }
       const bg = slotColor(slot.course.colorKey)
       const roomText = slot.course.room ? `<small class="tt-room">${slot.course.room}</small>` : ''
+      const courseJson = encodeURIComponent(JSON.stringify(slot.course))
       return `
-        <td class="tt-cell" style="background:${bg}">
-          <span class="tt-title">${slot.course.title}</span>
-          ${roomText}
+        <td class="tt-cell tt-cell-filled" style="background:${bg}" data-course="${courseJson}" tabindex="0" role="button" aria-label="${slot.course.title}">
+          <div class="tt-cell-inner">
+            <span class="tt-title">${slot.course.title}</span>
+            ${roomText}
+          </div>
         </td>
       `
     }).join('')
@@ -71,17 +282,30 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
   }).join('')
 
   return `
-    <div class="tt-wrapper">
-      <div class="tt-label-row">
-        <span class="eyebrow">${label}</span>
-      </div>
-      <div class="tt-scroll">
-        <table class="tt-table">
-          <thead><tr><th class="tt-corner"></th>${dayHeaders}</tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+    <div class="mypage-layout" id="mypage-layout">
+      <aside class="course-side-panel" id="course-side-panel">
+        <div class="course-side-inner">
+          <button class="course-side-close" id="course-side-close" aria-label="閉じる">
+            <span></span><span></span>
+          </button>
+          <div class="course-side-body" id="course-side-body"></div>
+        </div>
+      </aside>
+      <div class="tt-main">
+        <div class="tt-wrapper">
+          <div class="tt-label-row">
+            <span class="eyebrow">${label}</span>
+          </div>
+          <div class="tt-scroll">
+            <table class="tt-table">
+              <thead><tr><th class="tt-corner"></th>${dayHeaders}</tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
+    ${courseDetailModalMarkup()}
   `
 }
 
@@ -134,6 +358,25 @@ export async function renderMyPage(user: AuthUser) {
         </div>
         ${timetableMarkup(slots, label, hasSaturday)}
       `
+      // コマのクリックイベント
+      container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
+        const handler = () => {
+          const raw = cell.getAttribute('data-course')
+          if (!raw) return
+          try {
+            openCourseModal(JSON.parse(decodeURIComponent(raw)))
+          } catch { /* ignore */ }
+        }
+        cell.addEventListener('click', handler)
+        cell.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') handler() })
+      })
+      // パネル・モーダルを閉じる
+      document.getElementById('course-side-close')?.addEventListener('click', closeCourseModal)
+      document.getElementById('course-modal-close')?.addEventListener('click', closeCourseModal)
+      document.getElementById('course-modal')?.addEventListener('click', (e) => {
+        if (e.target === e.currentTarget) closeCourseModal()
+      })
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCourseModal() })
     }
   } catch {
     container.innerHTML = `
