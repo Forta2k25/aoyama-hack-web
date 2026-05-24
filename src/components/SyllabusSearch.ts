@@ -370,6 +370,15 @@ export function syllabusSearchMarkup(): string {
 
 // ─── Result card markup ───────────────────────────────────────────────────────
 
+/** "レポート Report" → "レポート"、"/" で分割して各行に */
+function formatEvalMethod(em: string): string {
+  return em
+    .split('/')
+    .map(part => part.trim().replace(/\s+[A-Za-z][A-Za-z\s]*$/u, '').trim())
+    .filter(Boolean)
+    .join('<br>')
+}
+
 function resultMarkup(r: SearchResult): string {
   const chips = [
     r.registrationNumber && `<span class="syllabus-chip">登録 ${r.registrationNumber}</span>`,
@@ -386,7 +395,7 @@ function resultMarkup(r: SearchResult): string {
           <span class="syllabus-result-title">${r.title}</span>
           ${r.teacher ? `<span class="syllabus-result-teacher">${r.teacher}</span>` : ''}
         </div>
-        ${r.evalMethod ? `<span class="syllabus-result-eval">${r.evalMethod}</span>` : ''}
+        ${r.evalMethod ? `<span class="syllabus-result-eval">${formatEvalMethod(r.evalMethod)}</span>` : ''}
       </div>
       ${chips ? `<div class="syllabus-result-chips">${chips}</div>` : ''}
     </div>
