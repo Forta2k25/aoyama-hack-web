@@ -79,14 +79,32 @@ interface FilterState {
   periods: number[]    // 1–7
   campus: string       // '', '青山', '相模原'
   examFilter: '' | 'noExam' | 'hasExam'
+  faculty: string      // '', '文学部', '理工学部', …
 }
 
-const DEFAULT_FILTERS: FilterState = { term: '前期', days: [], periods: [], campus: '', examFilter: '' }
+const DEFAULT_FILTERS: FilterState = { term: '前期', days: [], periods: [], campus: '', examFilter: '', faculty: '' }
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土']
 const TERM_OPTIONS = ['前期', '後期', '通年', '集中']
 
+// Firestore の category 値 → 学部ラベルのマッピング
+// CSV の「分類」フィールドがそのまま category として保存されている
+const FACULTY_GROUPS: Record<string, string[]> = {
+  '文学部':             ['文学部共通', '文学部外国語科目', 'フランス文学科', '日本文学科', '英米文学科', '比較芸術学科', '史学科'],
+  '教育人間科学部':     ['教育人間'],   // 前方一致（全角スペース区切りで続く）
+  '経済学部':           ['経済学部'],
+  '法学部':             ['法学部'],
+  '経営学部':           ['経営学部', '経営システム'],
+  '理工学部':           ['理工学部共通', '物理科学', '物理・数理', '化学・生命', '数理サイエンス', '情報テクノロジ', '機械創造', '電気電子工学科'],
+  '社会情報学部':       ['社会情報学部'],
+  '地球社会共生学部':   ['地球社会共生学部'],
+  'コミュニティ人間科学部': ['コミュニティ人間科学部', 'ｺﾐｭﾆﾃｨ人間科学部'],
+  '国際政治経済学部':   ['国際政治経済学部'],
+  '総合文化政策学部':   ['総合文化政策学部'],
+  '青山スタンダード':   ['青山スタンダード科目'],
+}
+
 function hasFilters(f: FilterState): boolean {
-  return !!(f.term || f.days.length || f.periods.length || f.campus || f.examFilter)
+  return !!(f.term || f.days.length || f.periods.length || f.campus || f.examFilter || f.faculty)
 }
 
 function filterCount(f: FilterState): number {
@@ -96,6 +114,7 @@ function filterCount(f: FilterState): number {
   if (f.periods.length) n++
   if (f.campus)         n++
   if (f.examFilter)     n++
+  if (f.faculty)        n++
   return n
 }
 
@@ -166,12 +185,22 @@ function matchExam(d: Record<string, unknown>, examFilter: FilterState['examFilt
   return examFilter === 'hasExam' ? hasExam : !hasExam
 }
 
+/** 学部フィルタ: FACULTY_GROUPS のマッピングで category フィールドと照合 */
+function matchFaculty(d: Record<string, unknown>, faculty: string): boolean {
+  if (!faculty) return true
+  const cat = String(d['category'] ?? '').normalize('NFKC')
+  if (!cat) return true  // category 未設定は除外しない
+  const patterns = FACULTY_GROUPS[faculty] ?? [faculty]
+  return patterns.some(p => cat.includes(p.normalize('NFKC')))
+}
+
 function applyFilters(d: Record<string, unknown>, filters: FilterState): boolean {
   return matchTerm(d, filters.term) &&
          matchDay(d, filters.days) &&
          matchPeriod(d, filters.periods) &&
          matchCampus(d, filters.campus) &&
-         matchExam(d, filters.examFilter)
+         matchExam(d, filters.examFilter) &&
+         matchFaculty(d, filters.faculty)
 }
 
 // ─── Firestore doc → SearchResult ────────────────────────────────────────────
@@ -282,7 +311,8 @@ async function searchClasses(keyword: string, filters: FilterState): Promise<Sea
         return matchDay(d, filters.days) &&
                matchPeriod(d, filters.periods) &&
                matchCampus(d, filters.campus) &&
-               matchExam(d, filters.examFilter)
+               matchExam(d, filters.examFilter) &&
+               matchFaculty(d, filters.faculty)
       })
       .map(doc => docToResult(doc.id, doc.data() as Record<string, unknown>))
   }
@@ -316,6 +346,14 @@ function filterPanelMarkup(initialTerm = ''): string {
         <div class="syllabus-filter-chips">
           ${[1, 2, 3, 4, 5, 6, 7].map(p =>
             `<button class="syllabus-filter-chip" data-filter="period" data-value="${p}" type="button">${p}限</button>`
+          ).join('')}
+        </div>
+      </div>
+      <div class="syllabus-filter-group">
+        <span class="syllabus-filter-label">学部・分類</span>
+        <div class="syllabus-filter-chips">
+          ${Object.keys(FACULTY_GROUPS).map(f =>
+            `<button class="syllabus-filter-chip" data-filter="faculty" data-value="${f}" type="button">${f}</button>`
           ).join('')}
         </div>
       </div>
@@ -524,6 +562,12 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
         filterPanel.querySelectorAll('[data-filter="exam"]').forEach(c => c.classList.remove('is-active'))
         filters.examFilter = wasActive ? '' : value as FilterState['examFilter']
         if (!wasActive) chip.classList.add('is-active')
+
+      } else if (type === 'faculty') {
+        const wasActive = chip.classList.contains('is-active')
+        filterPanel.querySelectorAll('[data-filter="faculty"]').forEach(c => c.classList.remove('is-active'))
+        filters.faculty = wasActive ? '' : value
+        if (!wasActive) chip.classList.add('is-active')
       }
 
       updateBadge()
@@ -554,7 +598,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
     // デフォルト状態（前期のみ・追加フィルタなし）かつキーワードなし → バブル表示
     const isIdle = !filtersSnap.days.length && !filtersSnap.periods.length &&
-                   !filtersSnap.campus && !filtersSnap.examFilter &&
+                   !filtersSnap.campus && !filtersSnap.examFilter && !filtersSnap.faculty &&
                    filtersSnap.term === DEFAULT_FILTERS.term
     if (!useKeyword && isIdle) { show(''); return }
 
