@@ -29,13 +29,16 @@ function evalBarMarkup(items: EvalItem[]): string {
     const pct = parseFloat(it.percent) || 0
     return `<div style="width:${pct}%;background:${COLORS[i % COLORS.length]};height:100%;"></div>`
   }).join('')
-  const legend = items.map((it, i) => `
+  const legend = items.map((it, i) => {
+    const jaName = it.name.replace(/\s+[A-Za-z][\w\s-]*/g, '').trim()
+    return `
     <div class="eval-legend-item">
       <span class="eval-dot" style="background:${COLORS[i % COLORS.length]}"></span>
-      <span class="eval-legend-name">${it.name}</span>
+      <span class="eval-legend-name">${jaName}</span>
       <span class="eval-legend-pct" style="color:${COLORS[i % COLORS.length]}">${it.percent}</span>
-      ${it.description ? `<span class="eval-legend-desc">${it.description}</span>` : ''}
-    </div>`).join('')
+      <span class="eval-legend-desc">${it.description ?? ''}</span>
+    </div>`
+  }).join('')
   return `
     <div class="course-section">
       <p class="course-section-label">成績評価</p>

@@ -1106,12 +1106,18 @@ body.modal-open { overflow: hidden; }
 
 /* 成績評価バー */
 .eval-bar { height: 10px; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 12px; }
-.eval-legend { display: flex; flex-direction: column; gap: 6px; }
-.eval-legend-item { display: flex; align-items: baseline; gap: 6px; font-size: 0.82rem; }
-.eval-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.eval-legend-name { font-weight: 600; color: #222; }
-.eval-legend-pct { font-weight: 700; font-size: 0.9rem; margin-left: auto; padding-left: 8px; }
-.eval-legend-desc { color: #777; font-size: 0.76rem; flex-basis: 100%; padding-left: 15px; }
+.eval-legend { display: flex; flex-direction: column; gap: 8px; }
+.eval-legend-item {
+  display: grid;
+  grid-template-columns: 10px max-content max-content 1fr;
+  column-gap: 8px;
+  align-items: baseline;
+  font-size: 0.82rem;
+}
+.eval-dot { width: 9px; height: 9px; border-radius: 50%; align-self: center; margin-top: 1px; }
+.eval-legend-name { font-weight: 600; color: #222; white-space: nowrap; }
+.eval-legend-pct { font-weight: 700; font-size: 0.9rem; }
+.eval-legend-desc { color: #777; font-size: 0.76rem; }
 
 /* 授業計画 */
 .lecture-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
