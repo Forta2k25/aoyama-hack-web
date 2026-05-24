@@ -592,6 +592,82 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .syllabus-loading { display: flex; justify-content: center; padding: 32px 0; }
 .syllabus-empty { text-align: center; color: #aaa; font-size: 0.9rem; padding: 32px 0; margin: 0; }
 
+/* ── フロートバブルゾーン ─────────────────────────────── */
+.syllabus-float-zone {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+  margin: 4px 0 8px;
+  opacity: 1;
+  transition: opacity 0.35s ease, height 0.35s ease;
+  /* 上下をグラデーションでフェードアウト */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0,0,0,0.5) 10%,
+    black 25%,
+    black 75%,
+    rgba(0,0,0,0.5) 90%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0,0,0,0.5) 10%,
+    black 25%,
+    black 75%,
+    rgba(0,0,0,0.5) 90%,
+    transparent 100%
+  );
+}
+.syllabus-float-zone.float-zone-hidden {
+  opacity: 0;
+  height: 0;
+  pointer-events: none;
+}
+.float-bubble {
+  position: absolute;
+  padding: 7px 16px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(45, 128, 103, 0.28);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #2d6055;
+  white-space: nowrap;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 10px rgba(45, 128, 103, 0.1), 0 0 0 1.5px rgba(45, 128, 103, 0.22);
+  animation: float-bubble var(--dur, 5s) var(--delay, 0s) ease-in-out infinite;
+  transition: box-shadow 0.18s, background 0.18s, transform 0.18s;
+}
+.float-bubble:hover {
+  animation-play-state: paused;
+  background: rgba(237, 247, 243, 0.98);
+  box-shadow: 0 4px 18px rgba(45, 128, 103, 0.2), 0 0 0 1.5px #2d8067;
+  transform: scale(1.06);
+  z-index: 10;
+}
+@keyframes float-bubble {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  30% {
+    transform: translateY(var(--dy, -14px)) rotate(var(--rot, 0.3deg));
+  }
+  60% {
+    transform: translateY(calc(var(--dy, -14px) * 0.55)) rotate(calc(var(--rot, 0.3deg) * -0.6));
+  }
+}
+@media (max-width: 600px) {
+  .syllabus-float-zone { height: 160px; }
+}
+
 /* 検索バー下のメタ行（ヒント + 絞り込みボタン） */
 .syllabus-search-meta {
   display: flex;

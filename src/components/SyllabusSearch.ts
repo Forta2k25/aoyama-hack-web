@@ -2,6 +2,62 @@ import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Course } from '../timetable'
 
+// ─── Float bubbles: Firestore から授業をサンプリングしてアニメーション表示 ────
+
+let _floatCache: string[] | null = null
+
+async function fetchFloatTitles(): Promise<string[]> {
+  if (_floatCache) return _floatCache
+  try {
+    const snap = await getDocs(query(collection(db, 'classes'), limit(80)))
+    _floatCache = snap.docs
+      .map(d => String(d.data()['class_name'] ?? ''))
+      .filter(t => t.length >= 3 && t.length <= 22)
+    return _floatCache
+  } catch {
+    return []
+  }
+}
+
+/** Fisher-Yates で n 件抽出 */
+function pickRandom<T>(arr: T[], n: number): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a.slice(0, n)
+}
+
+/** 手動調整した分散レイアウト (left%, top%) */
+const BUBBLE_SLOTS = [
+  [  4, 10], [ 33,  6], [ 60,  4], [ 82, 12],
+  [ 14, 36], [ 44, 30], [ 70, 38],
+  [  6, 62], [ 36, 58], [ 63, 65], [ 85, 56],
+  [ 22, 82], [ 56, 80],
+]
+
+function buildBubbleEl(title: string, x: number, y: number): HTMLElement {
+  const dur   = 4 + Math.random() * 3          // 4 〜 7 s
+  const delay = -(Math.random() * dur)          // 負値でフェーズをランダムに
+  const dy    = -(10 + Math.random() * 14)      // -10 〜 -24 px
+  const rot   = (Math.random() - 0.5) * 1.2    // ±0.6 deg
+
+  const el = document.createElement('button')
+  el.className = 'float-bubble'
+  el.textContent = title
+  el.type = 'button'
+  el.style.left    = `${x}%`
+  el.style.top     = `${y}%`
+  el.style.setProperty('--dur',   `${dur.toFixed(1)}s`)
+  el.style.setProperty('--delay', `${delay.toFixed(1)}s`)
+  el.style.setProperty('--dy',    `${dy.toFixed(1)}px`)
+  el.style.setProperty('--rot',   `${rot.toFixed(2)}deg`)
+  el.style.opacity = String(0.65 + Math.random() * 0.3)
+
+  return el
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface SearchResult {
@@ -287,6 +343,7 @@ export function syllabusSearchMarkup(): string {
         </button>
       </div>
       ${filterPanelMarkup()}
+      <div id="syllabus-float-zone" class="syllabus-float-zone" aria-hidden="true"></div>
       <div id="syllabus-search-results" class="syllabus-results"></div>
     </div>
   `
@@ -325,14 +382,52 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   const filterBadge    = document.getElementById('syllabus-filter-badge')
   const filterReset    = document.getElementById('syllabus-filter-reset') as HTMLButtonElement | null
   const filterSearchBtn = document.getElementById('syllabus-filter-search-btn') as HTMLButtonElement | null
+  const floatZone      = document.getElementById('syllabus-float-zone')
 
   if (!input || !resultsEl) return
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let lastResults: SearchResult[] = []
   let filters: FilterState = { ...EMPTY_FILTERS }
+  let floatVisible = true
 
-  const show = (html: string) => { resultsEl.innerHTML = html }
+  // ── フロートゾーン 表示/非表示 ──
+  const showFloat = (visible: boolean) => {
+    if (!floatZone) return
+    if (visible === floatVisible) return
+    floatVisible = visible
+    floatZone.classList.toggle('float-zone-hidden', !visible)
+  }
+
+  const show = (html: string) => {
+    resultsEl.innerHTML = html
+    showFloat(html === '')
+  }
+
+  // ── フロートバブルを生成 ──
+  ;(async () => {
+    if (!floatZone) return
+    const titles = await fetchFloatTitles()
+    if (!titles.length) return
+
+    const slots  = pickRandom(BUBBLE_SLOTS, Math.min(BUBBLE_SLOTS.length, titles.length))
+    const picked = pickRandom(titles, slots.length)
+
+    picked.forEach((title, i) => {
+      const [x, y] = slots[i]
+      const el = buildBubbleEl(title, x, y)
+      el.addEventListener('click', () => {
+        input.value = title
+        if (clearBtn) clearBtn.hidden = false
+        showFloat(false)
+        show(`<div class="syllabus-loading">
+          <span class="mypage-spinner" style="width:20px;height:20px;border-width:2px"></span>
+        </div>`)
+        doSearch(title, { ...filters })
+      })
+      floatZone.appendChild(el)
+    })
+  })()
 
   // ── フィルタバッジ更新 ──
   const updateBadge = () => {
@@ -404,8 +499,10 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
     const useTerm    = !!filtersSnap.term
     const useOther   = !!(filtersSnap.days.length || filtersSnap.periods.length || filtersSnap.campus)
 
-    // 何も指定されていない
+    // 何も指定されていない → バブルを見せる
     if (!useKeyword && !hasFilters(filtersSnap)) { show(''); return }
+
+    showFloat(false)  // 検索開始でバブルを隠す
 
     // day/period/campus だけで keyword も term もない場合
     if (!useKeyword && !useTerm && useOther) {
@@ -459,11 +556,11 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
     timer = setTimeout(() => doSearch(val, filters), 350)
   })
 
-  // ── クリア ──
+  // ── クリア → バブルを再表示 ──
   clearBtn?.addEventListener('click', () => {
     input.value = ''
     if (clearBtn) clearBtn.hidden = true
-    show('')
+    show('')       // show('') 内で showFloat(true) が呼ばれる
     input.focus()
   })
 
