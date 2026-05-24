@@ -537,8 +537,11 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   const doSearch = async (keyword: string, filtersSnap: FilterState) => {
     const useKeyword = keyword.length >= 2
 
-    // キーワードなし → バブルを見せる
-    if (!useKeyword) { show(''); return }
+    // デフォルト状態（前期のみ・追加フィルタなし）かつキーワードなし → バブル表示
+    const isIdle = !filtersSnap.days.length && !filtersSnap.periods.length &&
+                   !filtersSnap.campus && !filtersSnap.noExam &&
+                   filtersSnap.term === DEFAULT_FILTERS.term
+    if (!useKeyword && isIdle) { show(''); return }
 
     showFloat(false)  // 検索開始でバブルを隠す
 
