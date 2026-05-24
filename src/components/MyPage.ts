@@ -374,28 +374,32 @@ export async function renderMyPage(user: AuthUser) {
   try {
     const slots = await fetchTimetable(user.uid)
     const label = termLabel()
+    const tabsBar = `
+      <div class="mypage-tabs-bar">
+        <button class="mypage-tab mypage-tab--active" id="tab-timetable" type="button">時間割</button>
+        <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
+      </div>
+    `
     if (slots.length === 0) {
       container.innerHTML = `
         <div class="mypage-header">
-          <div>
-            <p class="eyebrow">マイページ</p>
-            <h1>${label} 時間割</h1>
-          </div>
+          <p class="eyebrow">マイページ</p>
           <button class="btn btn-ghost mypage-signout" id="mypage-signout-btn" type="button">ログアウト</button>
         </div>
-        ${emptyMarkup(label)}
+        ${tabsBar}
+        <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
+        <div id="tab-panel-syllabus" hidden><div class="mypage-placeholder"><p>シラバス検索は準備中です</p></div></div>
       `
     } else {
       const hasSaturday = slots.some((s) => s.day === 5)
       container.innerHTML = `
         <div class="mypage-header">
-          <div>
-            <p class="eyebrow">マイページ</p>
-            <h1>${label} 時間割</h1>
-          </div>
+          <p class="eyebrow">マイページ</p>
           <button class="btn btn-ghost mypage-signout" id="mypage-signout-btn" type="button">ログアウト</button>
         </div>
-        ${timetableMarkup(slots, label, hasSaturday)}
+        ${tabsBar}
+        <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday)}</div>
+        <div id="tab-panel-syllabus" hidden><div class="mypage-placeholder"><p>シラバス検索は準備中です</p></div></div>
       `
       // コマのクリックイベント
       container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
@@ -417,6 +421,19 @@ export async function renderMyPage(user: AuthUser) {
       })
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCourseModal() })
     }
+    // タブ切り替え
+    document.getElementById('tab-timetable')?.addEventListener('click', () => {
+      document.getElementById('tab-panel-timetable')?.removeAttribute('hidden')
+      document.getElementById('tab-panel-syllabus')?.setAttribute('hidden', '')
+      document.getElementById('tab-timetable')?.classList.add('mypage-tab--active')
+      document.getElementById('tab-syllabus')?.classList.remove('mypage-tab--active')
+    })
+    document.getElementById('tab-syllabus')?.addEventListener('click', () => {
+      document.getElementById('tab-panel-syllabus')?.removeAttribute('hidden')
+      document.getElementById('tab-panel-timetable')?.setAttribute('hidden', '')
+      document.getElementById('tab-syllabus')?.classList.add('mypage-tab--active')
+      document.getElementById('tab-timetable')?.classList.remove('mypage-tab--active')
+    })
   } catch {
     container.innerHTML = `
       <div class="mypage-error">
