@@ -312,8 +312,9 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
     }).join('')
     const [start, end] = PERIOD_TIMES[p] ?? ['', '']
     return `<tr><th class="tt-period-header">
+      <span class="tt-period-time">${start}</span>
       <span class="tt-period-num">${p}</span>
-      ${start ? `<span class="tt-period-time">${start}<br>${end}</span>` : ''}
+      <span class="tt-period-time">${end}</span>
     </th>${cells}</tr>`
   }).join('')
 

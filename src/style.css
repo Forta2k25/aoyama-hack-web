@@ -545,25 +545,26 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .tt-period-header {
   text-align: center;
   background: #fafafa;
-  padding: 4px 4px;
   border-top: 1px solid #eee;
-  vertical-align: middle;
-  white-space: nowrap;
+  padding: 6px 2px;
+  height: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
 }
 .tt-period-num {
-  display: block;
   font-weight: 700;
-  color: #666;
-  font-size: 0.78rem;
-  line-height: 1.2;
+  color: #555;
+  font-size: 0.82rem;
+  line-height: 1;
 }
 .tt-period-time {
-  display: block;
   font-weight: 400;
-  color: #aaa;
-  font-size: 0.62rem;
-  line-height: 1.4;
-  margin-top: 2px;
+  color: #bbb;
+  font-size: 0.6rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 .tt-cell {
   vertical-align: top;
