@@ -313,7 +313,7 @@ function filterPanelMarkup(initialTerm = ''): string {
         <span class="syllabus-filter-label">時限</span>
         <div class="syllabus-filter-chips">
           ${[1, 2, 3, 4, 5, 6, 7].map(p =>
-            `<button class="syllabus-filter-chip" data-filter="period" data-value="${p}" type="button">第${p}</button>`
+            `<button class="syllabus-filter-chip" data-filter="period" data-value="${p}" type="button">${p}限</button>`
           ).join('')}
         </div>
       </div>
