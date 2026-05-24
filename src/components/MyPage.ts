@@ -355,7 +355,6 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
         </div>
       </div>
     </div>
-    ${courseDetailModalMarkup()}
   `
 }
 
@@ -400,6 +399,7 @@ export async function renderMyPage(user: AuthUser) {
         ${tabsBar}
         <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
+        ${courseDetailModalMarkup()}
       `
     } else {
       const hasSaturday = slots.some((s) => s.day === 5)
@@ -411,6 +411,7 @@ export async function renderMyPage(user: AuthUser) {
         ${tabsBar}
         <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
+        ${courseDetailModalMarkup()}
       `
       // コマのクリックイベント
       container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
