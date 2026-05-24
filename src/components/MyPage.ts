@@ -392,6 +392,11 @@ export async function renderMyPage(user: AuthUser) {
         <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
       </div>
     `
+    // モーダルは .reveal の transform 影響外に置くため document.body 直下に挿入
+    if (!document.getElementById('course-modal')) {
+      document.body.insertAdjacentHTML('beforeend', courseDetailModalMarkup())
+    }
+
     if (slots.length === 0) {
       container.innerHTML = `
         <div class="mypage-header">
@@ -401,7 +406,6 @@ export async function renderMyPage(user: AuthUser) {
         ${tabsBar}
         <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
-        ${courseDetailModalMarkup()}
       `
     } else {
       const hasSaturday = slots.some((s) => s.day === 5)
@@ -413,7 +417,6 @@ export async function renderMyPage(user: AuthUser) {
         ${tabsBar}
         <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
-        ${courseDetailModalMarkup()}
       `
       // コマのクリックイベント
       container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
