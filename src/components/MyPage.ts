@@ -439,7 +439,7 @@ export async function renderMyPage(user: AuthUser) {
       document.getElementById('tab-timetable')?.classList.toggle('mypage-tab--active', !isSyllabus)
       document.getElementById('tab-syllabus')?.classList.toggle('mypage-tab--active', isSyllabus)
       if (isSyllabus) closeCourseModal()
-      if (pushHistory) history.pushState(null, '', `#${tab}`)
+      if (pushHistory) history.pushState(null, '', location.search + `#${tab}`)
     }
     document.getElementById('tab-timetable')?.addEventListener('click', () => showTab('timetable'))
     document.getElementById('tab-syllabus')?.addEventListener('click',   () => showTab('syllabus'))
@@ -449,7 +449,7 @@ export async function renderMyPage(user: AuthUser) {
     // 初期ロード: URL の hash でタブを決定
     if (location.hash === '#syllabus') showTab('syllabus', false)
 
-    initSyllabusSearch(openCourseModal)
+    initSyllabusSearch()
   } catch {
     container.innerHTML = `
       <div class="mypage-error">

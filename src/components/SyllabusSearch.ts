@@ -1,6 +1,5 @@
 import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { Course } from '../timetable'
 
 // ─── Float bubbles: Firestore から授業をサンプリングしてアニメーション表示 ────
 
@@ -406,8 +405,15 @@ function resultMarkup(r: SearchResult): string {
     r.term               && `<span class="syllabus-chip">${r.term}</span>`,
   ].filter(Boolean).join('')
 
+  // URL があれば <a>、なければ <div>（クリック不可）
+  const tag   = r.syllabusURL ? 'a' : 'div'
+  const attrs = r.syllabusURL
+    ? `href="${r.syllabusURL}" target="_blank" rel="noopener noreferrer"`
+    : 'aria-disabled="true"'
+
   return `
-    <div class="syllabus-result-item" data-id="${r.firestoreId}" role="button" tabindex="0">
+    <${tag} class="syllabus-result-item${r.syllabusURL ? '' : ' syllabus-result-no-url'}"
+       data-id="${r.firestoreId}" ${attrs} tabindex="0">
       <div class="syllabus-result-main">
         <div class="syllabus-result-info">
           <span class="syllabus-result-title">${r.title}</span>
@@ -416,13 +422,13 @@ function resultMarkup(r: SearchResult): string {
         ${r.evalMethod ? `<span class="syllabus-result-eval">${formatEvalMethod(r.evalMethod)}</span>` : ''}
       </div>
       ${chips ? `<div class="syllabus-result-chips">${chips}</div>` : ''}
-    </div>
+    </${tag}>
   `
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-export function initSyllabusSearch(onCourseClick: (course: Course) => void): void {
+export function initSyllabusSearch(): void {
   const input          = document.getElementById('syllabus-search-input') as HTMLInputElement | null
   const resultsEl      = document.getElementById('syllabus-search-results')
   const clearBtn       = document.getElementById('syllabus-search-clear') as HTMLButtonElement | null
@@ -437,7 +443,17 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let lastResults: SearchResult[] = []
-  let filters: FilterState = { ...DEFAULT_FILTERS }
+  const _url  = new URLSearchParams(location.search)
+  const _ints = (s: string | null) => s ? s.split(',').map(Number).filter(n => !isNaN(n)) : []
+  let filters: FilterState = {
+    term:       _url.get('term')    ?? DEFAULT_FILTERS.term,
+    days:       _ints(_url.get('days')),
+    periods:    _ints(_url.get('periods')),
+    campus:     _url.get('campus')  ?? '',
+    examFilter: (_url.get('exam')   ?? '') as FilterState['examFilter'],
+    faculty:    _url.get('faculty') ?? '',
+    department: _url.get('dept')    ?? '',
+  }
   let floatVisible = true
 
   // ── フロートゾーン 表示/非表示 ──
@@ -501,6 +517,22 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   }
   updateBadge()  // デフォルト「前期」選択を初期バッジに反映
 
+  // ── URL に検索条件を同期（replaceState で履歴を汚さない） ──
+  const syncURL = () => {
+    const kw = input.value.trim()
+    const p  = new URLSearchParams()
+    if (kw)                                    p.set('q',       kw)
+    if (filters.term !== DEFAULT_FILTERS.term) p.set('term',    filters.term)
+    if (filters.days.length)                   p.set('days',    filters.days.join(','))
+    if (filters.periods.length)                p.set('periods', filters.periods.join(','))
+    if (filters.campus)                        p.set('campus',  filters.campus)
+    if (filters.examFilter)                    p.set('exam',    filters.examFilter)
+    if (filters.faculty)                       p.set('faculty', filters.faculty)
+    if (filters.department)                    p.set('dept',    filters.department)
+    const qs = p.toString()
+    history.replaceState(null, '', (qs ? `?${qs}` : location.pathname) + location.hash)
+  }
+
   // ── フィルタチップのトグル ──
   filterPanel?.querySelectorAll<HTMLButtonElement>('.syllabus-filter-chip').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -544,6 +576,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
       }
 
       updateBadge()
+      syncURL()
     })
   })
 
@@ -565,10 +598,12 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
     filters.department = ''
     updateDepartmentSelect(facultySelect.value)
     updateBadge()
+    syncURL()
   })
   departmentSelect?.addEventListener('change', () => {
     filters.department = departmentSelect.value
     updateBadge()
+    syncURL()
   })
 
   // ── フィルタパネル開閉 ──
@@ -590,6 +625,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
     if (departmentGroup)  departmentGroup.hidden = true
     if (departmentSelect) departmentSelect.innerHTML = '<option value="">すべて</option>'
     updateBadge()
+    syncURL()
     show('')
   })
 
@@ -616,6 +652,8 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
     try {
       lastResults = await searchClasses(keyword, filtersSnap)
+      console.log('[SyllabusSearch] 件数:', lastResults.length,
+        '/ 1件目URL:', lastResults[0]?.syllabusURL || '(空)')
 
       if (!lastResults.length) {
         show('<p class="syllabus-empty">授業が見つかりませんでした</p>')
@@ -624,22 +662,17 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
       show(lastResults.map(resultMarkup).join(''))
 
-      resultsEl.querySelectorAll<HTMLElement>('.syllabus-result-item').forEach((el, idx) => {
-        const open = () => {
+      // <a> タグのデフォルト遷移を抑止して window.open で確実に新タブを開く
+      resultsEl.querySelectorAll<HTMLElement>('.syllabus-result-item[href]').forEach((el, idx) => {
+        const handler = (e: Event) => {
+          e.preventDefault()
           const r = lastResults[idx]
-          if (!r) return
-          onCourseClick({
-            id:             r.registrationNumber || r.firestoreId,
-            title:          r.title,
-            room:           r.room,
-            teacher:        r.teacher,
-            credits:        r.credit ? Number(r.credit) : undefined,
-            syllabusURL:    r.syllabusURL,
-            firestoreDocID: r.firestoreId || undefined,
-          })
+          if (r?.syllabusURL) window.open(r.syllabusURL, '_blank', 'noopener,noreferrer')
         }
-        el.addEventListener('click', open)
-        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open() })
+        el.addEventListener('click', handler)
+        el.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(e) }
+        })
       })
     } catch (err) {
       console.error('[SyllabusSearch]', err)
@@ -651,6 +684,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   input.addEventListener('input', () => {
     const val = input.value.trim()
     if (clearBtn) clearBtn.hidden = !val
+    syncURL()
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => doSearch(val, filters), 350)
   })
@@ -659,6 +693,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   clearBtn?.addEventListener('click', () => {
     input.value = ''
     if (clearBtn) clearBtn.hidden = true
+    syncURL()
     show('')       // show('') 内で showFloat(true) が呼ばれる
     input.focus()
   })
@@ -666,6 +701,39 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   // ── 検索するボタン ──
   filterSearchBtn?.addEventListener('click', () => {
     if (timer) clearTimeout(timer)
+    syncURL()
     doSearch(input.value.trim(), { ...filters })
   })
+
+  // ── URL 復元: ページロード時に URL パラメータから状態を再現 ──
+  ;(() => {
+    const hasParams = [..._url.keys()].length > 0
+    if (!hasParams) return
+
+    const kw = _url.get('q') ?? ''
+    if (kw) { input.value = kw; if (clearBtn) clearBtn.hidden = false }
+
+    // チップの is-active 状態を URL パラメータに合わせて更新
+    filterPanel?.querySelectorAll<HTMLElement>('.syllabus-filter-chip').forEach(chip => {
+      const type = chip.dataset.filter!
+      const val  = chip.dataset.value!
+      let active = false
+      if (type === 'term')   active = filters.term === val
+      if (type === 'day')    active = filters.days.includes(Number(val))
+      if (type === 'period') active = filters.periods.includes(Number(val))
+      if (type === 'campus') active = filters.campus === val
+      if (type === 'exam')   active = filters.examFilter === val
+      chip.classList.toggle('is-active', active)
+    })
+
+    // 学部・学科セレクトを復元
+    if (facultySelect && filters.faculty) {
+      facultySelect.value = filters.faculty
+      updateDepartmentSelect(filters.faculty)
+      if (departmentSelect && filters.department) departmentSelect.value = filters.department
+    }
+
+    updateBadge()
+    doSearch(kw, filters)
+  })()
 }
