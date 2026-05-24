@@ -481,10 +481,10 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
       const value = chip.dataset.value!
 
       if (type === 'term') {
-        const wasActive = chip.classList.contains('is-active')
+        if (chip.classList.contains('is-active')) return  // 選択中は解除不可
         filterPanel.querySelectorAll('[data-filter="term"]').forEach(c => c.classList.remove('is-active'))
-        filters.term = wasActive ? '' : value
-        if (!wasActive) chip.classList.add('is-active')
+        filters.term = value
+        chip.classList.add('is-active')
 
       } else if (type === 'day') {
         const idx = Number(value)
@@ -528,6 +528,8 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   filterReset?.addEventListener('click', () => {
     filters = { ...DEFAULT_FILTERS }
     filterPanel?.querySelectorAll('.syllabus-filter-chip').forEach(c => c.classList.remove('is-active'))
+    // 学期「前期」は常に選択状態に戻す
+    filterPanel?.querySelector<HTMLElement>('[data-filter="term"][data-value="前期"]')?.classList.add('is-active')
     updateBadge()
     show('')
   })
