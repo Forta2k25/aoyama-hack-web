@@ -569,11 +569,10 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
     }
   }
 
-  // ── キーワード入力（フィルタなし時は自動デバウンス） ──
+  // ── キーワード入力（フィルタの有無に関わらずデバウンス検索） ──
   input.addEventListener('input', () => {
     const val = input.value.trim()
     if (clearBtn) clearBtn.hidden = !val
-    if (hasFilters(filters)) return  // フィルタあり → 手動検索のみ
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => doSearch(val, filters), 350)
   })
