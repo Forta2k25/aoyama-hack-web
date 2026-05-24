@@ -9,7 +9,7 @@ let _floatCache: string[] | null = null
 async function fetchFloatTitles(): Promise<string[]> {
   if (_floatCache) return _floatCache
   try {
-    const snap = await getDocs(query(collection(db, 'classes'), limit(80)))
+    const snap = await getDocs(query(collection(db, 'classes'), limit(120)))
     _floatCache = snap.docs
       .map(d => String(d.data()['class_name'] ?? ''))
       .filter(t => t.length >= 3 && t.length <= 22)
@@ -29,12 +29,21 @@ function pickRandom<T>(arr: T[], n: number): T[] {
   return a.slice(0, n)
 }
 
-/** 手動調整した分散レイアウト (left%, top%) */
+/**
+ * ビューポート全体に分散するレイアウト (left%, top%)
+ * 検索UIは画面上部中央を占めるので、両サイド・下部に多めに配置
+ */
 const BUBBLE_SLOTS = [
-  [  4, 10], [ 33,  6], [ 60,  4], [ 82, 12],
-  [ 14, 36], [ 44, 30], [ 70, 38],
-  [  6, 62], [ 36, 58], [ 63, 65], [ 85, 56],
-  [ 22, 82], [ 56, 80],
+  // 上端 — 検索バーの両脇
+  [  2,  5], [ 88,  4], [  6, 14], [ 84, 13],
+  // 上段中間
+  [ 18, 22], [ 72, 20], [ 38, 18], [ 58, 24],
+  // 中段
+  [  3, 38], [ 92, 35], [ 26, 42], [ 68, 40], [ 48, 46],
+  // 下段
+  [  8, 58], [ 82, 56], [ 35, 62], [ 60, 60], [ 20, 70],
+  // 下端
+  [ 44, 76], [ 75, 74], [  5, 82], [ 90, 80], [ 30, 87], [ 62, 85],
 ]
 
 function buildBubbleEl(title: string, x: number, y: number): HTMLElement {
@@ -428,6 +437,19 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
       floatZone.appendChild(el)
     })
   })()
+
+  // ── シラバスタブの表示/非表示を監視してバブルをトグル ──
+  const syllabusPanel = document.getElementById('tab-panel-syllabus')
+  if (syllabusPanel && floatZone) {
+    new MutationObserver(() => {
+      const tabVisible = !syllabusPanel.hasAttribute('hidden')
+      if (!tabVisible) {
+        showFloat(false)
+      } else if (resultsEl.innerHTML === '') {
+        showFloat(true)
+      }
+    }).observe(syllabusPanel, { attributes: true, attributeFilter: ['hidden'] })
+  }
 
   // ── フィルタバッジ更新 ──
   const updateBadge = () => {

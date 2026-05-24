@@ -523,6 +523,8 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   margin-bottom: 32px;
   flex-wrap: wrap;
   gap: 12px;
+  position: relative;
+  z-index: 5;
 }
 .mypage-header h1 {
   font-size: clamp(1.5rem, 4vw, 2rem);
@@ -534,7 +536,7 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 }
 
 /* シラバス検索 */
-.syllabus-search { display: flex; flex-direction: column; gap: 0; }
+.syllabus-search { display: flex; flex-direction: column; gap: 0; position: relative; z-index: 10; }
 .syllabus-search-bar-wrap {
   display: flex;
   align-items: center;
@@ -592,37 +594,18 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .syllabus-loading { display: flex; justify-content: center; padding: 32px 0; }
 .syllabus-empty { text-align: center; color: #aaa; font-size: 0.9rem; padding: 32px 0; margin: 0; }
 
-/* ── フロートバブルゾーン ─────────────────────────────── */
+/* ── フロートバブルゾーン（画面全体） ───────────────────── */
 .syllabus-float-zone {
-  position: relative;
-  height: 220px;
+  position: fixed;
+  inset: 0;
+  z-index: 2;            /* サイトヘッダー(80)より低く、検索UI(10)より低い */
+  pointer-events: none;  /* バブル以外はクリック透過 */
   overflow: hidden;
-  margin: 4px 0 8px;
   opacity: 1;
-  transition: opacity 0.35s ease, height 0.35s ease;
-  /* 上下をグラデーションでフェードアウト */
-  -webkit-mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0,0,0,0.5) 10%,
-    black 25%,
-    black 75%,
-    rgba(0,0,0,0.5) 90%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    to bottom,
-    transparent 0%,
-    rgba(0,0,0,0.5) 10%,
-    black 25%,
-    black 75%,
-    rgba(0,0,0,0.5) 90%,
-    transparent 100%
-  );
+  transition: opacity 0.4s ease;
 }
 .syllabus-float-zone.float-zone-hidden {
   opacity: 0;
-  height: 0;
   pointer-events: none;
 }
 .float-bubble {
@@ -799,6 +782,8 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   gap: 0;
   border-bottom: 2px solid #eee;
   margin-bottom: 20px;
+  position: relative;
+  z-index: 5;
 }
 .mypage-tab {
   padding: 8px 20px;
@@ -923,6 +908,8 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .mypage-layout {
   display: flex;
   align-items: flex-start;
+  position: relative;
+  z-index: 5;  /* float zone(2) より上、site-header(80) より下 */
 }
 .tt-main {
   flex: 1;
