@@ -40,62 +40,62 @@ function filterCount(f: FilterState): number {
   return n
 }
 
-// ─── Client-side filter helpers ─────────────────────────────────────────────
-// Firestoreのfield名が不明なため、複数の候補を試みる
+// ─── Actual Firestore schema (confirmed from console) ────────────────────────
+//
+//   term:   "（前期）"  全角括弧付き文字列
+//   campus: "[青山]"    半角角括弧付き文字列
+//   time:   { day: "月", periods: [1, 2, ...] }  ネストしたmap
+//
 
 const DAY_STR = ['月', '火', '水', '木', '金', '土']
 
+/** term フィルタ用: "前期" → "（前期）" に変換して全角括弧を許容 */
+function toFirestoreTerm(uiTerm: string): string {
+  return `（${uiTerm}）`
+}
+
 function matchDay(d: Record<string, unknown>, days: number[]): boolean {
   if (!days.length) return true
-  // 候補フィールド名
-  const candidates = ['day', 'youbi', 'weekday', 'week', 'day_of_week', 'dayOfWeek']
-  for (const key of candidates) {
-    if (d[key] === undefined || d[key] === null) continue
-    const val = d[key]
-    return days.some(idx => {
-      const s = DAY_STR[idx]
-      return val === idx ||                    // 数値 0〜5
-             val === s ||                      // "月"
-             val === s + '曜' ||               // "月曜"
-             val === s + '曜日' ||             // "月曜日"
-             String(val).startsWith(s)
-    })
-  }
-  return true  // フィールド未発見 → 絞り込まない
+  const time = d['time'] as Record<string, unknown> | null | undefined
+  const dayVal = time?.['day'] ?? d['day']          // time.day が正規、d.day はフォールバック
+  if (dayVal === undefined || dayVal === null) return true
+  return days.some(idx => {
+    const s = DAY_STR[idx]
+    return dayVal === s ||
+           dayVal === s + '曜' ||
+           dayVal === s + '曜日' ||
+           dayVal === idx
+  })
 }
 
 function matchPeriod(d: Record<string, unknown>, periods: number[]): boolean {
   if (!periods.length) return true
-  const candidates = ['period', 'jigen', 'time_slot', 'timeslot', 'koma', 'jigen_no', 'periodNo']
-  for (const key of candidates) {
-    if (d[key] === undefined || d[key] === null) continue
-    const val = d[key]
-    return periods.some(p =>
-      val === p ||
-      val === String(p) ||
-      val === `第${p}` ||
-      val === `第${p}時限` ||
-      Number(val) === p
-    )
+  const time = d['time'] as Record<string, unknown> | null | undefined
+  // time.periods は数値配列: [1], [2, 3] など
+  const arr = time?.['periods'] as unknown[] | null | undefined
+  if (arr) {
+    return periods.some(p => arr.some(v => Number(v) === p))
   }
-  return true
+  // フォールバック: フラットな period フィールド
+  const pVal = time?.['period'] ?? d['period'] ?? d['jigen']
+  if (pVal !== undefined && pVal !== null) {
+    return periods.some(p => Number(pVal) === p)
+  }
+  return true  // フィールド未発見 → 絞り込まない
 }
 
 function matchCampus(d: Record<string, unknown>, campus: string): boolean {
   if (!campus) return true
-  const candidates = ['campus', 'campus_name', 'campusName', 'location', 'place']
-  for (const key of candidates) {
-    if (d[key] === undefined || d[key] === null) continue
-    const val = String(d[key])
-    return val.includes(campus) || campus.includes(val)
-  }
-  return true
+  // "[青山]" のように角括弧付きで格納されているので contains で確認
+  const val = String(d['campus'] ?? '')
+  return val.includes(campus)
 }
 
 function matchTerm(d: Record<string, unknown>, term: string): boolean {
   if (!term) return true
   const t = String(d['term'] ?? '')
-  return t === term || t.includes(term)
+  // "（前期）".includes("前期") = true
+  return t.includes(term)
 }
 
 function applyFilters(d: Record<string, unknown>, filters: FilterState): boolean {
@@ -108,20 +108,17 @@ function applyFilters(d: Record<string, unknown>, filters: FilterState): boolean
 // ─── Firestore doc → SearchResult ────────────────────────────────────────────
 
 function docToResult(id: string, d: Record<string, unknown>): SearchResult {
-  // 曜日・時限を表示用文字列にまとめる
-  const dayVal = d['day'] ?? d['youbi'] ?? d['weekday'] ?? d['week'] ?? d['day_of_week']
-  const periodVal = d['period'] ?? d['jigen'] ?? d['time_slot'] ?? d['koma']
+  // time.day / time.periods からチップ用文字列を生成
+  const time = d['time'] as Record<string, unknown> | null | undefined
+  const dayVal  = time?.['day'] ?? d['day']
+  const perArr  = time?.['periods'] as number[] | null | undefined
   let dayPeriod = ''
-  if (dayVal !== undefined && dayVal !== null && dayVal !== '') {
-    const s = String(dayVal)
-    const dayStr = /^[0-5]$/.test(s) ? (DAY_STR[Number(s)] ?? s) + '曜' : s
-    const pStr   = periodVal !== undefined && periodVal !== null && periodVal !== ''
-                   ? ` 第${periodVal}時限` : ''
-    dayPeriod = dayStr + pStr
-  } else if (periodVal !== undefined && periodVal !== null && periodVal !== '') {
-    dayPeriod = `第${periodVal}時限`
+  if (dayVal) {
+    dayPeriod = String(dayVal) + '曜'
+    if (perArr?.length) dayPeriod += ` 第${perArr[0]}限`
+  } else if (perArr?.length) {
+    dayPeriod = `第${perArr[0]}限`
   }
-
   return {
     firestoreId:        id,
     title:              String(d['class_name']   ?? ''),
@@ -181,14 +178,24 @@ async function searchClasses(keyword: string, filters: FilterState): Promise<Sea
   if (useTerm) {
     const termEnd = filters.term + ''
 
-    // まず完全一致を試みる（Firestoreの term フォーマットが "前期" の場合）
+    // Firestoreの term は "（前期）" 形式なのでまず括弧付きで試みる
+    const fsTerm = toFirestoreTerm(filters.term)  // "前期" → "（前期）"
     let snap = await getDocs(query(
       collection(db, 'classes'),
-      where('term', '==', filters.term),
+      where('term', '==', fsTerm),
       limit(500)
     ))
 
-    // 0件なら前方一致で再試行（"2026年前期" などの場合）
+    // 0件なら括弧なしの完全一致を試みる
+    if (snap.empty) {
+      snap = await getDocs(query(
+        collection(db, 'classes'),
+        where('term', '==', filters.term),
+        limit(500)
+      ))
+    }
+
+    // まだ0件なら term の contains は Firestore 不可なので前方一致で近似
     if (snap.empty) {
       snap = await getDocs(query(
         collection(db, 'classes'),
