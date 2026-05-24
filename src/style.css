@@ -580,7 +580,7 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .syllabus-result-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .syllabus-result-title { font-size: 0.95rem; font-weight: 700; color: #132856; line-height: 1.4; }
 .syllabus-result-teacher { font-size: 0.82rem; color: #666; }
-.syllabus-result-eval { flex-shrink: 0; max-width: 130px; font-size: 0.75rem; color: #888; text-align: right; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-top: 2px; }
+.syllabus-result-eval { flex-shrink: 0; max-width: 120px; font-size: 0.75rem; color: #888; text-align: right; line-height: 1.5; padding-top: 2px; word-break: break-all; }
 .syllabus-result-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .syllabus-chip {
   font-size: 0.75rem;

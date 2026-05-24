@@ -277,10 +277,11 @@ async function searchClasses(keyword: string, filters: FilterState): Promise<Sea
     return snap.docs
       .filter(doc => {
         const d = doc.data() as Record<string, unknown>
-        // term は既にクエリで絞れているので day/period/campus だけ適用
+        // term は既にクエリで絞れているので残りをクライアント側で適用
         return matchDay(d, filters.days) &&
                matchPeriod(d, filters.periods) &&
-               matchCampus(d, filters.campus)
+               matchCampus(d, filters.campus) &&
+               matchNoExam(d, filters.noExam)
       })
       .map(doc => docToResult(doc.id, doc.data() as Record<string, unknown>))
   }
