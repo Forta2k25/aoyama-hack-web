@@ -12,7 +12,9 @@ function courseDetailModalMarkup() {
         <button class="course-modal-close" id="course-modal-close" aria-label="閉じる">
           <span></span><span></span>
         </button>
-        <div class="course-modal-body" id="course-modal-body"></div>
+        <div class="course-modal-scroll">
+          <div class="course-modal-body" id="course-modal-body"></div>
+        </div>
       </div>
     </div>
   `
@@ -151,6 +153,8 @@ function courseDetailBodyMarkup(
   `
 }
 
+let _outsideClickHandler: ((e: MouseEvent) => void) | null = null
+
 export function openCourseModal(course: import('../timetable').Course) {
   if (window.innerWidth >= 800) {
     const panel = document.getElementById('course-side-panel')
@@ -159,6 +163,20 @@ export function openCourseModal(course: import('../timetable').Course) {
 
     body.innerHTML = courseDetailBodyMarkup(course, undefined, undefined, true)
     panel.classList.add('is-open')
+
+    // パネルが画面内に収まるようスクロール
+    const layout = document.getElementById('mypage-layout')
+    if (layout) {
+      const top = layout.getBoundingClientRect().top + window.scrollY - 96
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    }
+
+    // パネル外クリックで閉じる
+    if (_outsideClickHandler) document.removeEventListener('click', _outsideClickHandler)
+    _outsideClickHandler = (e: MouseEvent) => {
+      if (!(e.target as Element | null)?.closest?.('#course-side-panel')) closeCourseModal()
+    }
+    setTimeout(() => document.addEventListener('click', _outsideClickHandler!), 100)
 
     fetchCourseDetail(course)
       .then(async (detail) => {
@@ -208,6 +226,10 @@ export function closeCourseModal() {
     document.body.classList.remove('modal-open')
   }
   document.getElementById('course-side-panel')?.classList.remove('is-open')
+  if (_outsideClickHandler) {
+    document.removeEventListener('click', _outsideClickHandler)
+    _outsideClickHandler = null
+  }
 }
 
 function loginMarkup() {
@@ -288,7 +310,9 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
           <button class="course-side-close" id="course-side-close" aria-label="閉じる">
             <span></span><span></span>
           </button>
-          <div class="course-side-body" id="course-side-body"></div>
+          <div class="course-side-scroll">
+            <div class="course-side-body" id="course-side-body"></div>
+          </div>
         </div>
       </aside>
       <div class="tt-main">
