@@ -10,9 +10,9 @@ export default defineConfig({
       name: 'vercel-api-dev',
       configureServer(server) {
         server.middlewares.use(
-          '/api/syllabus',
           async (req: Connect.IncomingMessage, res, next) => {
-            const urlParam = new URL(req.url ?? '', 'http://localhost').searchParams.get('url') ?? ''
+            if (!req.url?.startsWith('/api/syllabus')) return next()
+            const urlParam = new URL(req.url, 'http://localhost').searchParams.get('url') ?? ''
             if (
               !urlParam.startsWith('https://syllabus.aoyama.ac.jp') &&
               !urlParam.startsWith('http://syllabus.aoyama.ac.jp')
