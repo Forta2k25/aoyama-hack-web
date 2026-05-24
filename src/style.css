@@ -566,11 +566,6 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   padding: 4px;
   line-height: 1;
 }
-.syllabus-search-hint {
-  font-size: 0.75rem;
-  color: #bbb;
-  margin: 8px 2px 16px;
-}
 .syllabus-results { display: flex; flex-direction: column; gap: 8px; }
 .syllabus-result-item {
   background: #fff;
@@ -596,6 +591,131 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 }
 .syllabus-loading { display: flex; justify-content: center; padding: 32px 0; }
 .syllabus-empty { text-align: center; color: #aaa; font-size: 0.9rem; padding: 32px 0; margin: 0; }
+
+/* 検索バー下のメタ行（ヒント + 絞り込みボタン） */
+.syllabus-search-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px 2px 12px;
+}
+.syllabus-search-hint {
+  font-size: 0.75rem;
+  color: #bbb;
+  margin: 0;
+  flex: 1;
+}
+/* 絞り込みトグルボタン */
+.syllabus-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border: 1.5px solid #d0d0d0;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .15s, background .15s, color .15s;
+  flex-shrink: 0;
+}
+.syllabus-filter-toggle:hover { border-color: #2d8067; color: #2d8067; }
+.syllabus-filter-toggle.is-open { border-color: #2d8067; background: #edf7f3; color: #2d8067; }
+.syllabus-filter-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #2d8067;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* 絞り込みパネル */
+.syllabus-filter-panel {
+  background: #f8faf9;
+  border: 1.5px solid #d8ede7;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.syllabus-filter-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.syllabus-filter-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #555;
+  white-space: nowrap;
+  padding-top: 4px;
+  min-width: 48px;
+}
+.syllabus-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.syllabus-filter-chip {
+  padding: 4px 12px;
+  border: 1.5px solid #d8ede7;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  transition: border-color .12s, background .12s, color .12s;
+}
+.syllabus-filter-chip:hover { border-color: #2d8067; color: #2d8067; }
+.syllabus-filter-chip.is-active { border-color: #2d8067; background: #2d8067; color: #fff; }
+.syllabus-filter-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid #e0ede9;
+}
+.syllabus-filter-reset {
+  border: 0;
+  background: transparent;
+  font-size: 0.82rem;
+  color: #aaa;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.syllabus-filter-reset:hover { color: #e55; }
+.syllabus-filter-search-btn {
+  padding: 8px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: #2d8067;
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background .15s;
+}
+.syllabus-filter-search-btn:hover { background: #1f6050; }
+
+/* 公開シラバス由来の結果に専用バッジ */
+.syllabus-chip--public {
+  background: #e8f4ff;
+  color: #2266cc;
+}
 
 /* タブ */
 .mypage-tabs-bar {
