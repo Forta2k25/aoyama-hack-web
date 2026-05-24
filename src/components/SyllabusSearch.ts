@@ -352,7 +352,6 @@ export function syllabusSearchMarkup(): string {
         <button class="syllabus-search-clear" id="syllabus-search-clear" type="button" hidden aria-label="クリア">×</button>
       </div>
       <div class="syllabus-search-meta">
-        <p class="syllabus-search-hint">学期か授業名で絞り込み（Firestore直接検索）</p>
         <button class="syllabus-filter-toggle" id="syllabus-filter-toggle" type="button" aria-expanded="false">
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
             <path d="M1 3h10M3 6h6M5 9h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>

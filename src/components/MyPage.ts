@@ -432,19 +432,23 @@ export async function renderMyPage(user: AuthUser) {
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCourseModal() })
     }
     // タブ切り替え
-    document.getElementById('tab-timetable')?.addEventListener('click', () => {
-      document.getElementById('tab-panel-timetable')?.removeAttribute('hidden')
-      document.getElementById('tab-panel-syllabus')?.setAttribute('hidden', '')
-      document.getElementById('tab-timetable')?.classList.add('mypage-tab--active')
-      document.getElementById('tab-syllabus')?.classList.remove('mypage-tab--active')
+    const showTab = (tab: 'timetable' | 'syllabus', pushHistory = true) => {
+      const isSyllabus = tab === 'syllabus'
+      document.getElementById('tab-panel-timetable')?.toggleAttribute('hidden', isSyllabus)
+      document.getElementById('tab-panel-syllabus')?.toggleAttribute('hidden', !isSyllabus)
+      document.getElementById('tab-timetable')?.classList.toggle('mypage-tab--active', !isSyllabus)
+      document.getElementById('tab-syllabus')?.classList.toggle('mypage-tab--active', isSyllabus)
+      if (isSyllabus) closeCourseModal()
+      if (pushHistory) history.pushState(null, '', `#${tab}`)
+    }
+    document.getElementById('tab-timetable')?.addEventListener('click', () => showTab('timetable'))
+    document.getElementById('tab-syllabus')?.addEventListener('click',   () => showTab('syllabus'))
+    window.addEventListener('popstate', () => {
+      showTab(location.hash === '#syllabus' ? 'syllabus' : 'timetable', false)
     })
-    document.getElementById('tab-syllabus')?.addEventListener('click', () => {
-      document.getElementById('tab-panel-syllabus')?.removeAttribute('hidden')
-      document.getElementById('tab-panel-timetable')?.setAttribute('hidden', '')
-      document.getElementById('tab-syllabus')?.classList.add('mypage-tab--active')
-      document.getElementById('tab-timetable')?.classList.remove('mypage-tab--active')
-      closeCourseModal()
-    })
+    // 初期ロード: URL の hash でタブを決定
+    if (location.hash === '#syllabus') showTab('syllabus', false)
+
     initSyllabusSearch(openCourseModal)
   } catch {
     container.innerHTML = `
