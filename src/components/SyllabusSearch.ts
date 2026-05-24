@@ -1,3 +1,4 @@
+import type { Course } from '../timetable'
 import { collection, query, where, limit, getDocs } from 'firebase/firestore'
 import { db } from '../firebase'
 
@@ -405,15 +406,8 @@ function resultMarkup(r: SearchResult): string {
     r.term               && `<span class="syllabus-chip">${r.term}</span>`,
   ].filter(Boolean).join('')
 
-  // URL があれば <a>、なければ <div>（クリック不可）
-  const tag   = r.syllabusURL ? 'a' : 'div'
-  const attrs = r.syllabusURL
-    ? `href="${r.syllabusURL}" target="_blank" rel="noopener noreferrer"`
-    : 'aria-disabled="true"'
-
   return `
-    <${tag} class="syllabus-result-item${r.syllabusURL ? '' : ' syllabus-result-no-url'}"
-       data-id="${r.firestoreId}" ${attrs} tabindex="0">
+    <div class="syllabus-result-item" data-id="${r.firestoreId}" role="button" tabindex="0">
       <div class="syllabus-result-main">
         <div class="syllabus-result-info">
           <span class="syllabus-result-title">${r.title}</span>
@@ -422,13 +416,13 @@ function resultMarkup(r: SearchResult): string {
         ${r.evalMethod ? `<span class="syllabus-result-eval">${formatEvalMethod(r.evalMethod)}</span>` : ''}
       </div>
       ${chips ? `<div class="syllabus-result-chips">${chips}</div>` : ''}
-    </${tag}>
+    </div>
   `
 }
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 
-export function initSyllabusSearch(): void {
+export function initSyllabusSearch(onCourseClick: (course: Course) => void): void {
   const input          = document.getElementById('syllabus-search-input') as HTMLInputElement | null
   const resultsEl      = document.getElementById('syllabus-search-results')
   const clearBtn       = document.getElementById('syllabus-search-clear') as HTMLButtonElement | null
@@ -652,8 +646,6 @@ export function initSyllabusSearch(): void {
 
     try {
       lastResults = await searchClasses(keyword, filtersSnap)
-      console.log('[SyllabusSearch] 件数:', lastResults.length,
-        '/ 1件目URL:', lastResults[0]?.syllabusURL || '(空)')
 
       if (!lastResults.length) {
         show('<p class="syllabus-empty">授業が見つかりませんでした</p>')
@@ -662,17 +654,22 @@ export function initSyllabusSearch(): void {
 
       show(lastResults.map(resultMarkup).join(''))
 
-      // <a> タグのデフォルト遷移を抑止して window.open で確実に新タブを開く
-      resultsEl.querySelectorAll<HTMLElement>('.syllabus-result-item[href]').forEach((el, idx) => {
-        const handler = (e: Event) => {
-          e.preventDefault()
+      resultsEl.querySelectorAll<HTMLElement>('.syllabus-result-item').forEach((el, idx) => {
+        const open = () => {
           const r = lastResults[idx]
-          if (r?.syllabusURL) window.open(r.syllabusURL, '_blank', 'noopener,noreferrer')
+          if (!r) return
+          onCourseClick({
+            id:             r.registrationNumber || r.firestoreId,
+            title:          r.title,
+            room:           r.room,
+            teacher:        r.teacher,
+            credits:        r.credit ? Number(r.credit) : undefined,
+            syllabusURL:    r.syllabusURL,
+            firestoreDocID: r.firestoreId || undefined,
+          })
         }
-        el.addEventListener('click', handler)
-        el.addEventListener('keydown', (e: KeyboardEvent) => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(e) }
-        })
+        el.addEventListener('click', open)
+        el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') open() })
       })
     } catch (err) {
       console.error('[SyllabusSearch]', err)

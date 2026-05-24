@@ -134,6 +134,7 @@ function courseDetailBodyMarkup(
   if (loading) {
     return `
       <h2 class="course-modal-title">${course.title}</h2>
+      ${syllabusLink}
       <div class="info-chips">${chips}</div>
       <div class="course-loading-center"><span class="mypage-spinner" style="width:24px;height:24px;border-width:2px"></span></div>
     `
@@ -142,6 +143,7 @@ function courseDetailBodyMarkup(
   const week = currentWeekNumber()
   return `
     <h2 class="course-modal-title">${course.title}</h2>
+    ${syllabusLink}
     <div class="info-chips">${chips}</div>
     ${syllabus ? evalBarMarkup(syllabus.evalItems) : (detail?.evalMethod ? `<div class="course-section"><p class="course-section-label">成績評価方法</p><p class="course-section-text">${detail.evalMethod.replace(/\n/g, '<br>')}</p></div>` : '')}
     ${syllabus ? lecturePlanMarkup(syllabus.lectureItems, week) : ''}
@@ -150,7 +152,6 @@ function courseDetailBodyMarkup(
     ${syllabus ? methodChipsMarkup(syllabus.methods) : ''}
     ${syllabus ? booksMarkup('教科書', syllabus.textbooks) : ''}
     ${syllabus ? booksMarkup('参考書', syllabus.refs) : ''}
-    ${syllabusLink}
   `
 }
 
@@ -449,7 +450,7 @@ export async function renderMyPage(user: AuthUser) {
     // 初期ロード: URL の hash でタブを決定
     if (location.hash === '#syllabus') showTab('syllabus', false)
 
-    initSyllabusSearch()
+    initSyllabusSearch(openCourseModal)
   } catch {
     container.innerHTML = `
       <div class="mypage-error">
