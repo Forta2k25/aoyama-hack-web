@@ -116,10 +116,6 @@ function deptLabel(cat: string): string {
   return cat.replace(/^教育人間[　 ]/, '')  // "教育人間　教育学科" → "教育学科"
 }
 
-function hasFilters(f: FilterState): boolean {
-  return !!(f.term || f.days.length || f.periods.length || f.campus || f.examFilter || f.faculty)
-}
-
 function filterCount(f: FilterState): number {
   let n = 0
   if (f.term)           n++
@@ -247,93 +243,52 @@ function docToResult(id: string, d: Record<string, unknown>): SearchResult {
   }
 }
 
+// ─── Session cache ────────────────────────────────────────────────────────────
+// 学期ごとに全授業データをキャッシュ。同じ学期内の2回目以降の検索は
+// Firestore 読み取りゼロ・クライアント側フィルタのみで即レスポンス。
+
+interface CachedDoc { id: string; data: Record<string, unknown> }
+const termCache = new Map<string, CachedDoc[]>()
+
+async function loadTermDocs(term: string): Promise<CachedDoc[]> {
+  const fsTerm = toFirestoreTerm(term)   // "前期" → "（前期）"
+  if (termCache.has(fsTerm)) return termCache.get(fsTerm)!
+
+  // limit なしで当該学期の全授業を取得
+  let snap = await getDocs(query(collection(db, 'classes'), where('term', '==', fsTerm)))
+  if (snap.empty) {
+    // 括弧なしフォールバック
+    snap = await getDocs(query(collection(db, 'classes'), where('term', '==', term)))
+  }
+
+  const docs: CachedDoc[] = snap.docs.map(d => ({ id: d.id, data: d.data() as Record<string, unknown> }))
+  termCache.set(fsTerm, docs)
+  return docs
+}
+
+/** キャッシュ済みかどうかを同期で確認（ローディング表示の出し分けに使用） */
+function isTermCached(term: string): boolean {
+  return termCache.has(toFirestoreTerm(term))
+}
+
+/** キーワードと授業名・教員名の部分一致（前方一致ではなく contains） */
+function matchKeyword(d: Record<string, unknown>, keyword: string): boolean {
+  if (!keyword || keyword.length < 2) return true
+  const name    = String(d['class_name']    ?? '')
+  const teacher = String(d['teacher_name']  ?? '')
+  return name.includes(keyword) || teacher.includes(keyword)
+}
+
 // ─── Core search ─────────────────────────────────────────────────────────────
 
 async function searchClasses(keyword: string, filters: FilterState): Promise<SearchResult[]> {
-  const useKeyword = keyword.length >= 2
-  const useTerm    = !!filters.term
-  const useOther   = !!(filters.days.length || filters.periods.length || filters.campus)
+  if (!filters.term) return []
 
-  // keyword も term も未入力で day/period/campus だけ → 広すぎるためガイドを返す
-  if (!useKeyword && !useTerm && useOther) return []
+  const docs = await loadTermDocs(filters.term)
 
-  // ─ keyword あり: class_name / teacher_name 前方一致 ─
-  if (useKeyword) {
-    const end  = keyword + ''
-    const lim  = hasFilters(filters) ? 200 : 20
-    const lim2 = hasFilters(filters) ? 100 : 10
-
-    const [snap1, snap2] = await Promise.all([
-      getDocs(query(
-        collection(db, 'classes'),
-        where('class_name', '>=', keyword),
-        where('class_name', '<=', end),
-        limit(lim)
-      )),
-      getDocs(query(
-        collection(db, 'classes'),
-        where('teacher_name', '>=', keyword),
-        where('teacher_name', '<=', end),
-        limit(lim2)
-      )),
-    ])
-
-    const seen = new Set<string>()
-    const docs: SearchResult[] = []
-    for (const doc of [...snap1.docs, ...snap2.docs]) {
-      if (seen.has(doc.id)) continue
-      seen.add(doc.id)
-      const d = doc.data() as Record<string, unknown>
-      if (applyFilters(d, filters)) docs.push(docToResult(doc.id, d))
-    }
-    return docs
-  }
-
-  // ─ term のみ: term 前方一致クエリ → クライアント絞り込み ─
-  if (useTerm) {
-    const termEnd = filters.term + ''
-
-    // Firestoreの term は "（前期）" 形式なのでまず括弧付きで試みる
-    const fsTerm = toFirestoreTerm(filters.term)  // "前期" → "（前期）"
-    let snap = await getDocs(query(
-      collection(db, 'classes'),
-      where('term', '==', fsTerm),
-      limit(500)
-    ))
-
-    // 0件なら括弧なしの完全一致を試みる
-    if (snap.empty) {
-      snap = await getDocs(query(
-        collection(db, 'classes'),
-        where('term', '==', filters.term),
-        limit(500)
-      ))
-    }
-
-    // まだ0件なら term の contains は Firestore 不可なので前方一致で近似
-    if (snap.empty) {
-      snap = await getDocs(query(
-        collection(db, 'classes'),
-        where('term', '>=', filters.term),
-        where('term', '<=', termEnd),
-        limit(500)
-      ))
-    }
-
-    return snap.docs
-      .filter(doc => {
-        const d = doc.data() as Record<string, unknown>
-        // term は既にクエリで絞れているので残りをクライアント側で適用
-        return matchDay(d, filters.days) &&
-               matchPeriod(d, filters.periods) &&
-               matchCampus(d, filters.campus) &&
-               matchExam(d, filters.examFilter) &&
-               matchFaculty(d, filters.faculty, filters.department)
-      })
-      .map(doc => docToResult(doc.id, doc.data() as Record<string, unknown>))
-  }
-
-  return []
+  return docs
+    .filter(({ data: d }) => matchKeyword(d, keyword) && applyFilters(d, filters))
+    .map(({ id, data: d }) => docToResult(id, d))
 }
 
 // ─── Markup ──────────────────────────────────────────────────────────────────
@@ -651,9 +606,13 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
     showFloat(false)  // 検索開始でバブルを隠す
 
-    show(`<div class="syllabus-loading">
-      <span class="mypage-spinner" style="width:20px;height:20px;border-width:2px"></span>
-    </div>`)
+    // 初回（キャッシュなし）のみローディング表示。2回目以降は即レスポンスなので不要
+    if (!isTermCached(filtersSnap.term)) {
+      show(`<div class="syllabus-loading">
+        <span class="mypage-spinner" style="width:20px;height:20px;border-width:2px"></span>
+        <span style="margin-left:8px;font-size:.85rem;color:#888">授業データを読み込み中…</span>
+      </div>`)
+    }
 
     try {
       lastResults = await searchClasses(keyword, filtersSnap)
