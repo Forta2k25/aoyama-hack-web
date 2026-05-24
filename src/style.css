@@ -1028,7 +1028,7 @@ body.modal-open { overflow: hidden; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   backdrop-filter: blur(3px);
   animation: fadeInOverlay .18s ease;
 }
@@ -1039,8 +1039,9 @@ body.modal-open { overflow: hidden; }
   border-radius: 20px;
   padding: 40px 40px 0;
   width: 100%;
-  max-width: 520px;
-  max-height: 88vh;
+  max-width: 560px;
+  height: calc(100dvh - 32px);
+  max-height: 720px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -1052,6 +1053,7 @@ body.modal-open { overflow: hidden; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   flex: 1;
+  min-height: 0;
   padding-bottom: 40px;
 }
 @keyframes slideUpCard { from { transform: translateY(16px); opacity: 0 } to { transform: none; opacity: 1 } }

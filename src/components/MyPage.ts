@@ -201,9 +201,11 @@ export function openCourseModal(course: import('../timetable').Course) {
     if (!modal || !body) return
 
     body.innerHTML = courseDetailBodyMarkup(course, undefined, undefined, true)
+    const _savedScroll = window.scrollY
     modal.hidden = false
     document.body.classList.add('modal-open')
-    ;(modal.querySelector('.course-modal-close') as HTMLElement | null)?.focus()
+    window.scrollTo({ top: _savedScroll, behavior: 'instant' as ScrollBehavior })
+    ;(modal.querySelector('.course-modal-close') as HTMLElement | null)?.focus({ preventScroll: true })
 
     fetchCourseDetail(course)
       .then(async (detail) => {
