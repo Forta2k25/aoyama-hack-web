@@ -272,6 +272,16 @@ function emptyMarkup(label: string) {
   `
 }
 
+const PERIOD_TIMES: Record<number, [string, string]> = {
+  1: ['9:00',  '10:30'],
+  2: ['11:00', '12:30'],
+  3: ['13:20', '14:50'],
+  4: ['15:05', '16:35'],
+  5: ['16:50', '18:20'],
+  6: ['18:30', '20:00'],
+  7: ['20:10', '21:40'],
+}
+
 function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean): string {
   const days = hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS
   const periods = Array.from({ length: MAX_PERIODS }, (_, i) => i + 1)
@@ -300,7 +310,11 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
         </td>
       `
     }).join('')
-    return `<tr><th class="tt-period-header">${p}</th>${cells}</tr>`
+    const [start, end] = PERIOD_TIMES[p] ?? ['', '']
+    return `<tr><th class="tt-period-header">
+      <span class="tt-period-num">${p}</span>
+      ${start ? `<span class="tt-period-time">${start}<br>${end}</span>` : ''}
+    </th>${cells}</tr>`
   }).join('')
 
   return `
