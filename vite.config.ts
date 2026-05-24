@@ -7,10 +7,10 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: 'netlify-functions-dev',
+      name: 'vercel-api-dev',
       configureServer(server) {
         server.middlewares.use(
-          '/.netlify/functions/syllabus',
+          '/api/syllabus',
           async (req: Connect.IncomingMessage, res, next) => {
             const urlParam = new URL(req.url ?? '', 'http://localhost').searchParams.get('url') ?? ''
             if (

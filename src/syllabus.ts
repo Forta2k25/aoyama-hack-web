@@ -130,7 +130,7 @@ export function parseSyllabusHTML(html: string): SyllabusContent {
 export async function fetchAndParseSyllabus(syllabusURL: string): Promise<SyllabusContent | null> {
   if (!syllabusURL || !syllabusURL.includes('syllabus.aoyama.ac.jp')) return null
   try {
-    const proxyURL = `/.netlify/functions/syllabus?url=${encodeURIComponent(syllabusURL)}`
+    const proxyURL = `/api/syllabus?url=${encodeURIComponent(syllabusURL)}`
     const res = await fetch(proxyURL)
     if (!res.ok) return null
     const html = await res.text()
