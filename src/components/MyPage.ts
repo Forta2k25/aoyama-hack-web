@@ -238,7 +238,15 @@ function loginMarkup() {
       <div class="mypage-login-inner">
         <p class="eyebrow">マイページ</p>
         <h1>時間割をウェブでも確認</h1>
-        <p>Googleアカウントでログインすると、アプリに登録した時間割をウェブでも確認できます。</p>
+        <p>アプリでGoogleアカウントを連携すると、登録した時間割をウェブでも確認できます。</p>
+        <div class="mypage-login-steps">
+          <p class="mypage-login-steps-label">Web版を使うには</p>
+          <ol>
+            <li>アプリの <strong>友だち</strong> タブを開く</li>
+            <li><strong>自分のプロフィール</strong> をタップ</li>
+            <li><strong>Google連携</strong> からアカウントを連携</li>
+          </ol>
+        </div>
         <button class="btn btn-primary mypage-google-signin" id="mypage-signin-btn" type="button">
           <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
             <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
@@ -248,7 +256,7 @@ function loginMarkup() {
           </svg>
           Googleでログイン
         </button>
-        <p class="mypage-login-note">青学のメールアドレスでなくてもOKです。<br>登録したGoogleアカウントと同じものでログインしてください。</p>
+        <p class="mypage-login-note">連携したGoogleアカウントと同じものでログインしてください。</p>
       </div>
     </div>
   `
