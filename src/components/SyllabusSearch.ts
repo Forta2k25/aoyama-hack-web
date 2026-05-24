@@ -81,7 +81,7 @@ interface FilterState {
   noExam: boolean    // 試験なしのみ表示
 }
 
-const EMPTY_FILTERS: FilterState = { term: '', days: [], periods: [], campus: '', noExam: false }
+const DEFAULT_FILTERS: FilterState = { term: '前期', days: [], periods: [], campus: '', noExam: false }
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土']
 const TERM_OPTIONS = ['前期', '後期', '通年', '集中']
 
@@ -290,14 +290,14 @@ async function searchClasses(keyword: string, filters: FilterState): Promise<Sea
 
 // ─── Markup ──────────────────────────────────────────────────────────────────
 
-function filterPanelMarkup(): string {
+function filterPanelMarkup(initialTerm = ''): string {
   return `
     <div class="syllabus-filter-panel" id="syllabus-filter-panel" hidden>
       <div class="syllabus-filter-group">
         <span class="syllabus-filter-label">学期</span>
         <div class="syllabus-filter-chips">
           ${TERM_OPTIONS.map(t =>
-            `<button class="syllabus-filter-chip" data-filter="term" data-value="${t}" type="button">${t}</button>`
+            `<button class="syllabus-filter-chip${t === initialTerm ? ' is-active' : ''}" data-filter="term" data-value="${t}" type="button">${t}</button>`
           ).join('')}
         </div>
       </div>
@@ -361,7 +361,7 @@ export function syllabusSearchMarkup(): string {
           <span class="syllabus-filter-badge" id="syllabus-filter-badge" hidden>0</span>
         </button>
       </div>
-      ${filterPanelMarkup()}
+      ${filterPanelMarkup(DEFAULT_FILTERS.term)}
       <div id="syllabus-float-zone" class="syllabus-float-zone" aria-hidden="true"></div>
       <div id="syllabus-search-results" class="syllabus-results"></div>
     </div>
@@ -410,7 +410,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
   let timer: ReturnType<typeof setTimeout> | null = null
   let lastResults: SearchResult[] = []
-  let filters: FilterState = { ...EMPTY_FILTERS }
+  let filters: FilterState = { ...DEFAULT_FILTERS }
   let floatVisible = true
 
   // ── フロートゾーン 表示/非表示 ──
@@ -472,6 +472,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
       filterBadge.hidden = n === 0
     }
   }
+  updateBadge()  // デフォルト「前期」選択を初期バッジに反映
 
   // ── フィルタチップのトグル ──
   filterPanel?.querySelectorAll<HTMLButtonElement>('.syllabus-filter-chip').forEach(chip => {
@@ -525,7 +526,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
 
   // ── リセット ──
   filterReset?.addEventListener('click', () => {
-    filters = { ...EMPTY_FILTERS }
+    filters = { ...DEFAULT_FILTERS }
     filterPanel?.querySelectorAll('.syllabus-filter-chip').forEach(c => c.classList.remove('is-active'))
     updateBadge()
     show('')
@@ -534,19 +535,11 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   // ── 検索実行 ──
   const doSearch = async (keyword: string, filtersSnap: FilterState) => {
     const useKeyword = keyword.length >= 2
-    const useTerm    = !!filtersSnap.term
-    const useOther   = !!(filtersSnap.days.length || filtersSnap.periods.length || filtersSnap.campus || filtersSnap.noExam)
 
-    // 何も指定されていない → バブルを見せる
-    if (!useKeyword && !hasFilters(filtersSnap)) { show(''); return }
+    // キーワードなし → バブルを見せる
+    if (!useKeyword) { show(''); return }
 
     showFloat(false)  // 検索開始でバブルを隠す
-
-    // day/period/campus だけで keyword も term もない場合
-    if (!useKeyword && !useTerm && useOther) {
-      show('<p class="syllabus-empty">学期かキーワードを指定してください</p>')
-      return
-    }
 
     show(`<div class="syllabus-loading">
       <span class="mypage-spinner" style="width:20px;height:20px;border-width:2px"></span>
