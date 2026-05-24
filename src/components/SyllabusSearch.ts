@@ -70,6 +70,7 @@ interface SearchResult {
   syllabusURL: string
   term: string
   dayPeriod?: string
+  evalMethod?: string  // 成績評価方法 (例: "平常点100%")
 }
 
 interface FilterState {
@@ -77,22 +78,24 @@ interface FilterState {
   days: number[]     // 0=月 … 5=土
   periods: number[]  // 1–7
   campus: string     // '', '青山', '相模原'
+  noExam: boolean    // 試験なしのみ表示
 }
 
-const EMPTY_FILTERS: FilterState = { term: '', days: [], periods: [], campus: '' }
+const EMPTY_FILTERS: FilterState = { term: '', days: [], periods: [], campus: '', noExam: false }
 const DAY_LABELS = ['月', '火', '水', '木', '金', '土']
 const TERM_OPTIONS = ['前期', '後期', '通年', '集中']
 
 function hasFilters(f: FilterState): boolean {
-  return !!(f.term || f.days.length || f.periods.length || f.campus)
+  return !!(f.term || f.days.length || f.periods.length || f.campus || f.noExam)
 }
 
 function filterCount(f: FilterState): number {
   let n = 0
-  if (f.term)          n++
-  if (f.days.length)   n++
+  if (f.term)           n++
+  if (f.days.length)    n++
   if (f.periods.length) n++
-  if (f.campus)        n++
+  if (f.campus)         n++
+  if (f.noExam)         n++
   return n
 }
 
@@ -154,11 +157,20 @@ function matchTerm(d: Record<string, unknown>, term: string): boolean {
   return t.includes(term)
 }
 
+/** 試験なしフィルタ: eval_method に "試験" "テスト" "筆記" が含まれない */
+function matchNoExam(d: Record<string, unknown>, noExam: boolean): boolean {
+  if (!noExam) return true
+  const em = String(d['eval_method'] ?? '')
+  if (!em) return true  // 不明なら除外しない
+  return !/試験|テスト|筆記/.test(em)
+}
+
 function applyFilters(d: Record<string, unknown>, filters: FilterState): boolean {
   return matchTerm(d, filters.term) &&
          matchDay(d, filters.days) &&
          matchPeriod(d, filters.periods) &&
-         matchCampus(d, filters.campus)
+         matchCampus(d, filters.campus) &&
+         matchNoExam(d, filters.noExam)
 }
 
 // ─── Firestore doc → SearchResult ────────────────────────────────────────────
@@ -185,6 +197,7 @@ function docToResult(id: string, d: Record<string, unknown>): SearchResult {
     syllabusURL:        String(d['url'] ?? d['syllabusURL'] ?? ''),
     term:               String(d['term'] ?? ''),
     dayPeriod,
+    evalMethod:         String(d['eval_method'] ?? '') || undefined,
   }
 }
 
@@ -312,6 +325,12 @@ function filterPanelMarkup(): string {
           ).join('')}
         </div>
       </div>
+      <div class="syllabus-filter-group">
+        <span class="syllabus-filter-label">評価方法</span>
+        <div class="syllabus-filter-chips">
+          <button class="syllabus-filter-chip" data-filter="noExam" data-value="1" type="button">試験なし</button>
+        </div>
+      </div>
       <div class="syllabus-filter-actions">
         <button class="syllabus-filter-reset" id="syllabus-filter-reset" type="button">リセット</button>
         <button class="syllabus-filter-search-btn" id="syllabus-filter-search-btn" type="button">検索する</button>
@@ -363,8 +382,11 @@ function resultMarkup(r: SearchResult): string {
   return `
     <div class="syllabus-result-item" data-id="${r.firestoreId}" role="button" tabindex="0">
       <div class="syllabus-result-main">
-        <span class="syllabus-result-title">${r.title}</span>
-        ${r.teacher ? `<span class="syllabus-result-teacher">${r.teacher}</span>` : ''}
+        <div class="syllabus-result-info">
+          <span class="syllabus-result-title">${r.title}</span>
+          ${r.teacher ? `<span class="syllabus-result-teacher">${r.teacher}</span>` : ''}
+        </div>
+        ${r.evalMethod ? `<span class="syllabus-result-eval">${r.evalMethod}</span>` : ''}
       </div>
       ${chips ? `<div class="syllabus-result-chips">${chips}</div>` : ''}
     </div>
@@ -484,6 +506,9 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
         filterPanel.querySelectorAll('[data-filter="campus"]').forEach(c => c.classList.remove('is-active'))
         filters.campus = wasActive ? '' : value
         if (!wasActive) chip.classList.add('is-active')
+
+      } else if (type === 'noExam') {
+        filters.noExam = chip.classList.toggle('is-active')
       }
 
       updateBadge()
@@ -510,7 +535,7 @@ export function initSyllabusSearch(onCourseClick: (course: Course) => void): voi
   const doSearch = async (keyword: string, filtersSnap: FilterState) => {
     const useKeyword = keyword.length >= 2
     const useTerm    = !!filtersSnap.term
-    const useOther   = !!(filtersSnap.days.length || filtersSnap.periods.length || filtersSnap.campus)
+    const useOther   = !!(filtersSnap.days.length || filtersSnap.periods.length || filtersSnap.campus || filtersSnap.noExam)
 
     // 何も指定されていない → バブルを見せる
     if (!useKeyword && !hasFilters(filtersSnap)) { show(''); return }
