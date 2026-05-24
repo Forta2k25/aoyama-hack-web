@@ -1039,9 +1039,9 @@ body.modal-open { overflow: hidden; }
   border-radius: 20px;
   padding: 40px 40px 0;
   width: 100%;
-  max-width: 560px;
-  height: calc(100dvh - 32px);
-  max-height: 720px;
+  max-width: 860px;
+  height: calc(100dvh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
