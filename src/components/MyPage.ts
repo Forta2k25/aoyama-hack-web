@@ -1,6 +1,7 @@
 import { type AuthUser } from '../auth'
 import { fetchTimetable, fetchCourseDetail, termLabel, slotColor, dayName, type TimetableSlot } from '../timetable'
 import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../syllabus'
+import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
@@ -156,7 +157,8 @@ function courseDetailBodyMarkup(
 let _outsideClickHandler: ((e: MouseEvent) => void) | null = null
 
 export function openCourseModal(course: import('../timetable').Course) {
-  if (window.innerWidth >= 800) {
+  const timetableActive = !document.getElementById('tab-panel-timetable')?.hasAttribute('hidden')
+  if (window.innerWidth >= 800 && timetableActive) {
     const panel = document.getElementById('course-side-panel')
     const body = document.getElementById('course-side-body')
     if (!panel || !body) return
@@ -396,7 +398,7 @@ export async function renderMyPage(user: AuthUser) {
         </div>
         ${tabsBar}
         <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
-        <div id="tab-panel-syllabus" hidden><div class="mypage-placeholder"><p>シラバス検索は準備中です</p></div></div>
+        <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
       `
     } else {
       const hasSaturday = slots.some((s) => s.day === 5)
@@ -407,7 +409,7 @@ export async function renderMyPage(user: AuthUser) {
         </div>
         ${tabsBar}
         <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday)}</div>
-        <div id="tab-panel-syllabus" hidden><div class="mypage-placeholder"><p>シラバス検索は準備中です</p></div></div>
+        <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
       `
       // コマのクリックイベント
       container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
@@ -441,7 +443,9 @@ export async function renderMyPage(user: AuthUser) {
       document.getElementById('tab-panel-timetable')?.setAttribute('hidden', '')
       document.getElementById('tab-syllabus')?.classList.add('mypage-tab--active')
       document.getElementById('tab-timetable')?.classList.remove('mypage-tab--active')
+      closeCourseModal()
     })
+    initSyllabusSearch(openCourseModal)
   } catch {
     container.innerHTML = `
       <div class="mypage-error">
