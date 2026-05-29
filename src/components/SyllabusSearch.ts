@@ -399,11 +399,11 @@ function formatEvalMethod(em: string): string {
 
 function resultMarkup(r: SearchResult): string {
   const chips = [
-    r.registrationNumber && `<span class="syllabus-chip">登録 ${r.registrationNumber}</span>`,
-    r.credit             && `<span class="syllabus-chip">${r.credit}単位</span>`,
-    r.room               && `<span class="syllabus-chip">教室 ${r.room}</span>`,
-    r.dayPeriod          && `<span class="syllabus-chip">${r.dayPeriod}</span>`,
-    r.term               && `<span class="syllabus-chip">${r.term}</span>`,
+    r.registrationNumber && `<span class="syllabus-chip syllabus-chip--reg">登録 ${r.registrationNumber}</span>`,
+    r.credit             && `<span class="syllabus-chip syllabus-chip--credit">${r.credit}単位</span>`,
+    r.room               && `<span class="syllabus-chip syllabus-chip--room">教室 ${r.room}</span>`,
+    r.dayPeriod          && `<span class="syllabus-chip syllabus-chip--period">${r.dayPeriod}</span>`,
+    r.term               && `<span class="syllabus-chip syllabus-chip--term">${r.term}</span>`,
   ].filter(Boolean).join('')
 
   return `

@@ -121,17 +121,17 @@ function courseDetailBodyMarkup(
   loading = false
 ): string {
   const chips = [
-    course.teacher && `<span class="info-chip">担当教員：${course.teacher}</span>`,
-    detail?.grade  && `<span class="info-chip">年度：${detail.grade}</span>`,
-    detail?.term   && `<span class="info-chip">学期：${detail.term}</span>`,
+    course.teacher && `<span class="info-chip info-chip--teacher">担当教員：${course.teacher}</span>`,
+    detail?.grade  && `<span class="info-chip info-chip--grade">年度：${detail.grade}</span>`,
+    detail?.term   && `<span class="info-chip info-chip--term">学期：${detail.term}</span>`,
     (course.credits ?? detail?.credit) != null
-      && `<span class="info-chip">単位：${course.credits ?? detail?.credit}単位</span>`,
-    course.room    && `<span class="info-chip">教室：${course.room}</span>`,
+      && `<span class="info-chip info-chip--credit">単位：${course.credits ?? detail?.credit}単位</span>`,
+    course.room    && `<span class="info-chip info-chip--room">教室：${course.room}</span>`,
   ].filter(Boolean).join('')
 
   const syllabusURL = course.syllabusURL || detail?.syllabusURL || ''
   const syllabusLink = syllabusURL
-    ? `<a class="course-syllabus-ext" href="${syllabusURL}" target="_blank" rel="noopener noreferrer">ブラウザで全文を見る ↗</a>`
+    ? `<a class="course-syllabus-link" href="${syllabusURL}" target="_blank" rel="noopener noreferrer">ブラウザで全文を見る ↗</a>`
     : ''
 
   if (loading) {
@@ -306,7 +306,8 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
   const grid: Record<string, TimetableSlot> = {}
   slots.forEach((s) => { grid[`${s.day}-${s.period}`] = s })
 
-  const dayHeaders = days.map((d) => `<th class="tt-day-header">${dayName(d)}</th>`).join('')
+  const todayDay = (new Date().getDay() + 6) % 7  // 0=月,1=火,...,5=土
+  const dayHeaders = days.map((d) => `<th class="tt-day-header${d === todayDay ? ' tt-day-header--today' : ''}">${dayName(d)}</th>`).join('')
 
   const rows = periods.map((p) => {
     const cells = days.map((d) => {

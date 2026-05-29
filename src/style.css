@@ -541,20 +541,25 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   gap: 8px;
   background: #fff;
   border: 1.5px solid #e0e0e0;
-  border-radius: 12px;
-  padding: 0 14px;
-  transition: border-color .15s;
+  border-radius: 14px;
+  padding: 0 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.04);
+  transition: border-color .18s, box-shadow .18s;
 }
-.syllabus-search-bar-wrap:focus-within { border-color: #2d8067; }
+.syllabus-search-bar-wrap:focus-within {
+  border-color: #2d8067;
+  box-shadow: 0 0 0 3px rgba(45,128,103,.12), 0 2px 12px rgba(45,128,103,.08);
+}
 .syllabus-search-icon { flex-shrink: 0; }
 .syllabus-search-input {
   flex: 1;
   border: 0;
   outline: none;
-  font-size: 0.95rem;
-  padding: 12px 0;
+  font-size: 1rem;
+  padding: 14px 0;
   background: transparent;
   color: #222;
+  font-family: inherit;
 }
 .syllabus-search-input::placeholder { color: #bbb; }
 .syllabus-search-clear {
@@ -571,17 +576,21 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   display: block;
   background: #fff;
   border: 1.5px solid #eee;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 14px 16px;
   cursor: pointer;
   text-decoration: none;
   color: inherit;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
 }
-.syllabus-result-item:hover { border-color: #2d8067; box-shadow: 0 2px 10px rgba(45,128,103,.08); }
+.syllabus-result-item:hover {
+  border-color: #2d8067;
+  box-shadow: 0 4px 18px rgba(45,128,103,.12);
+  transform: translateY(-2px);
+}
 .syllabus-result-main { display: flex; flex-direction: row; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
 .syllabus-result-info { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
-.syllabus-result-title { font-size: 0.95rem; font-weight: 700; color: #132856; line-height: 1.4; }
+.syllabus-result-title { font-size: 0.97rem; font-weight: 700; color: #132856; line-height: 1.4; }
 .syllabus-result-teacher { font-size: 0.82rem; color: #666; }
 .syllabus-result-eval { flex-shrink: 0; max-width: 120px; font-size: 0.75rem; color: #888; text-align: right; line-height: 1.5; padding-top: 2px; word-break: break-all; }
 .syllabus-result-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -594,6 +603,11 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   color: #444;
   white-space: nowrap;
 }
+.syllabus-chip--term   { background: #e8f5f0; color: #1a6048; }
+.syllabus-chip--credit { background: #e8f0ff; color: #2555cc; }
+.syllabus-chip--room   { background: #fff3e8; color: #b05a10; }
+.syllabus-chip--period { background: #f3eeff; color: #6930c3; }
+.syllabus-chip--reg    { background: #f0f4f8; color: #556; }
 .syllabus-loading { display: flex; justify-content: center; padding: 32px 0; }
 .syllabus-empty { text-align: center; color: #aaa; font-size: 0.9rem; padding: 32px 0; margin: 0; }
 
@@ -721,14 +735,15 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 
 /* 絞り込みパネル */
 .syllabus-filter-panel {
-  background: #f8faf9;
-  border: 1.5px solid #d8ede7;
-  border-radius: 14px;
-  padding: 16px;
+  background: #f6faf8;
+  border: 1.5px solid #cde8de;
+  border-radius: 16px;
+  padding: 18px;
   margin-bottom: 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  box-shadow: 0 2px 10px rgba(45,128,103,.06);
 }
 .syllabus-filter-group {
   display: flex;
@@ -779,8 +794,8 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   cursor: pointer;
   transition: border-color .12s, background .12s, color .12s;
 }
-.syllabus-filter-chip:hover { border-color: #2d8067; color: #2d8067; }
-.syllabus-filter-chip.is-active { border-color: #2d8067; background: #2d8067; color: #fff; }
+.syllabus-filter-chip:hover { border-color: #2d8067; color: #2d8067; background: #f0faf5; }
+.syllabus-filter-chip.is-active { border-color: #2d8067; background: #2d8067; color: #fff; box-shadow: 0 2px 8px rgba(45,128,103,.3); }
 .syllabus-filter-actions {
   display: flex;
   align-items: center;
@@ -820,26 +835,38 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 /* タブ */
 .mypage-tabs-bar {
   display: flex;
-  gap: 0;
-  border-bottom: 2px solid #eee;
-  margin-bottom: 20px;
+  gap: 2px;
+  background: #edf2ef;
+  border-radius: 999px;
+  padding: 4px;
+  margin-bottom: 28px;
+  border-bottom: none;
+  width: fit-content;
 }
 .mypage-tab {
-  padding: 8px 20px;
+  padding: 8px 22px;
   border: 0;
   background: transparent;
-  font-size: 0.95rem;
+  border-radius: 999px;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: #aaa;
+  color: #6b8f82;
   cursor: pointer;
-  position: relative;
-  bottom: -2px;
-  border-bottom: 2px solid transparent;
-  transition: color .15s, border-color .15s;
+  position: static;
+  bottom: auto;
+  border-bottom: none;
+  transition: color .2s, background .2s, box-shadow .2s;
+  white-space: nowrap;
+}
+.mypage-tab:not(.mypage-tab--active):hover {
+  background: rgba(45,128,103,.1);
+  color: #2d8067;
 }
 .mypage-tab--active {
-  color: #2d8067;
-  border-bottom-color: #2d8067;
+  color: #fff;
+  background: #2d8067;
+  box-shadow: 0 2px 10px rgba(45,128,103,.32);
+  border-bottom-color: transparent;
 }
 .mypage-placeholder {
   text-align: center;
@@ -858,8 +885,8 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .tt-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  border-radius: 14px;
+  box-shadow: 0 2px 16px rgba(0,0,0,.07);
 }
 .tt-table {
   width: 100%;
@@ -878,10 +905,16 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
 .tt-day-header {
   background: #f5f5f5;
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
   padding: 10px 4px;
-  color: #333;
+  color: #444;
   border-left: 1px solid #eee;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+}
+.tt-day-header--today {
+  background: #e8f5f0;
+  color: #1a6048;
 }
 .tt-period-header {
   text-align: center;
@@ -1069,7 +1102,9 @@ body.modal-open { overflow: hidden; }
   cursor: pointer;
   display: grid;
   place-items: center;
+  transition: background .18s;
 }
+.course-modal-close:hover { background: #e0e0e0; }
 .course-modal-close span {
   position: absolute;
   width: 16px;
@@ -1080,32 +1115,36 @@ body.modal-open { overflow: hidden; }
 .course-modal-close span:first-child { transform: rotate(45deg); }
 .course-modal-close span:last-child  { transform: rotate(-45deg); }
 .course-modal-title {
-  font-size: 1.2rem;
-  font-weight: 700;
+  font-size: 1.22rem;
+  font-weight: 800;
   line-height: 1.4;
-  margin: 0 0 20px;
-  padding-right: 24px;
-  color: #132856;
+  margin: 0 0 16px;
+  padding-right: 28px;
+  color: #0e2044;
 }
-.course-detail-list { margin: 0 0 20px; padding: 0; display: grid; gap: 10px; }
+.course-detail-list { margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
 .course-detail-row { display: flex; gap: 12px; }
-.course-detail-row dt { font-size: 0.78rem; color: #888; min-width: 72px; padding-top: 2px; }
-.course-detail-row dd { margin: 0; font-size: 0.9rem; font-weight: 600; color: #222; }
-.course-syllabus-link { font-size: 0.88rem; padding: 10px 20px; }
+.course-detail-row dt { font-size: 0.77rem; color: #999; min-width: 72px; padding-top: 2px; font-weight: 500; }
+.course-detail-row dd { margin: 0; font-size: 0.9rem; font-weight: 600; color: #1a2640; }
 
 .course-loading-center { display: flex; justify-content: center; padding: 32px 0; }
 
 /* info chips */
 .info-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
-.info-chip { font-size: 0.78rem; font-weight: 600; padding: 5px 10px; background: #f0f4f8; border-radius: 999px; color: #333; white-space: nowrap; }
+.info-chip { font-size: 0.78rem; font-weight: 600; padding: 5px 11px; background: #f0f4f8; border-radius: 999px; color: #333; white-space: nowrap; }
+.info-chip--teacher { background: #f0f4f8; color: #2d4a6e; }
+.info-chip--term    { background: #e8f5f0; color: #1a6048; }
+.info-chip--grade   { background: #f5f0ff; color: #5b21b6; }
+.info-chip--credit  { background: #e8f0ff; color: #2555cc; }
+.info-chip--room    { background: #fff3e8; color: #b05a10; }
 
 /* セクション共通 */
-.course-section { margin-top: 20px; padding-top: 18px; border-top: 1px solid #eee; }
-.course-section-label { font-size: 0.72rem; font-weight: 700; color: #888; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.05em; }
-.course-section-text { font-size: 0.88rem; line-height: 1.75; color: #333; margin: 0; }
+.course-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid #f0f0f0; }
+.course-section-label { font-size: 0.68rem; font-weight: 700; color: #2d8067; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.course-section-text { font-size: 0.88rem; line-height: 1.8; color: #333; margin: 0; }
 
 /* 成績評価バー */
-.eval-bar { height: 10px; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 12px; }
+.eval-bar { height: 11px; border-radius: 999px; overflow: hidden; display: flex; margin-bottom: 14px; box-shadow: inset 0 1px 3px rgba(0,0,0,.06); }
 .eval-legend { display: flex; flex-direction: column; gap: 8px; }
 .eval-legend-item {
   display: grid;
@@ -1121,8 +1160,10 @@ body.modal-open { overflow: hidden; }
 
 /* 授業計画 */
 .lecture-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
-.lecture-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 0.84rem; color: #444; }
-.lecture-item--current { background: #f0faf5; font-weight: 600; color: #1a6048; }
+.lecture-item { display: flex; align-items: flex-start; gap: 10px; padding: 6px 8px; border-radius: 8px; font-size: 0.84rem; color: #444; transition: background .15s; }
+.lecture-item:hover { background: #f5f5f5; }
+.lecture-item--current { background: #e8f7f1; font-weight: 600; color: #1a6048; }
+.lecture-item--current:hover { background: #ddf2e9; }
 .lecture-num { min-width: 20px; font-weight: 700; color: #aaa; font-size: 0.78rem; padding-top: 1px; flex-shrink: 0; }
 .lecture-item--current .lecture-num { color: #2d8067; }
 .lecture-text { flex: 1; line-height: 1.5; }
@@ -1130,8 +1171,8 @@ body.modal-open { overflow: hidden; }
 
 /* 授業方法チップ */
 .method-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.method-chip { font-size: 0.78rem; padding: 5px 10px; border: 1px solid #ddd; border-radius: 8px; color: #555; background: #fafafa; }
-.method-chip--active { background: #e8f5f0; border-color: #2d8067; color: #1a6048; font-weight: 600; }
+.method-chip { font-size: 0.78rem; padding: 5px 11px; border: 1.5px solid #e8e8e8; border-radius: 999px; color: #666; background: #fafafa; white-space: nowrap; }
+.method-chip--active { background: #e8f5f0; border-color: #2d8067; color: #1a6048; font-weight: 700; }
 
 /* 教科書 */
 .book-item { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
@@ -1140,8 +1181,44 @@ body.modal-open { overflow: hidden; }
 .book-author { display: block; font-size: 0.76rem; color: #777; margin-top: 2px; }
 
 /* シラバス外部リンク */
-.course-syllabus-ext { display: inline-flex; align-items: center; gap: 4px; font-size: 0.82rem; color: #2d8067; text-decoration: none; margin-top: 20px; padding-top: 18px; border-top: 1px solid #eee; width: 100%; font-weight: 600; }
-.course-syllabus-ext:hover { text-decoration: underline; }
+.course-syllabus-ext {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: #2d8067;
+  text-decoration: none;
+  margin-top: 20px;
+  padding: 18px 0 0;
+  border-top: 1px solid #eee;
+  width: 100%;
+  font-weight: 700;
+  transition: color .15s;
+}
+.course-syllabus-ext:hover { color: #1a5e48; text-decoration: underline; }
+
+/* シラバス確認ボタン（モーダル上部） */
+.course-syllabus-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #2d8067;
+  border: 1.5px solid #2d8067;
+  border-radius: 999px;
+  padding: 7px 16px;
+  text-decoration: none;
+  transition: background .18s, color .18s, box-shadow .18s;
+  margin-bottom: 18px;
+  align-self: flex-start;
+  white-space: nowrap;
+}
+.course-syllabus-link:hover {
+  background: #2d8067;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(45,128,103,.28);
+}
 
 @media (max-width: 640px) {
   .course-modal-card { padding: 28px 24px; border-radius: 16px; }
