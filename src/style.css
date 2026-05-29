@@ -1282,3 +1282,97 @@ body.modal-open { overflow: hidden; }
   .mypage-login { padding-block: 48px 32px; }
   .mypage-header { align-items: flex-start; flex-direction: column; }
 }
+
+/* ── 友だちタブ ─────────────────────────────────────────────────────────── */
+.friends-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.friend-list-section { display: flex; flex-direction: column; gap: 8px; }
+.friend-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1.5px solid #e8eef0;
+  border-left: 3px solid #cde5db;
+  border-radius: 14px;
+  cursor: pointer;
+  color: inherit;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+  width: 100%;
+  text-align: left;
+}
+.friend-card:hover {
+  border-color: #b8d8cc;
+  border-left-color: #2d8067;
+  box-shadow: 0 5px 20px rgba(45,128,103,.13);
+  transform: translateY(-1px);
+}
+.friend-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #e0e0e0;
+}
+.friend-avatar--initial {
+  background: linear-gradient(135deg, #2d8067, #19b980);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.friend-info { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.friend-name   { font-weight: 700; font-size: 0.95rem; color: #0e2044; }
+.friend-handle { font-size: 0.78rem; color: #999; }
+.friend-chevron { color: #b8ccc6; flex-shrink: 0; }
+
+/* 友達の時間割ヘッダー */
+.friend-tt-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.friend-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: #2d8067;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 4px;
+  border-radius: 6px;
+  transition: background .15s;
+  white-space: nowrap;
+}
+.friend-back-btn:hover { background: #f0faf5; }
+.friend-tt-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0e2044;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 2カラム (PC) */
+@media (min-width: 860px) {
+  .friend-list-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+  }
+}

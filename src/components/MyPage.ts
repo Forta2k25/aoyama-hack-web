@@ -1,10 +1,138 @@
 import { type AuthUser } from '../auth'
-import { fetchTimetable, fetchCourseDetail, termLabel, slotColor, dayName, type TimetableSlot } from '../timetable'
+import { fetchTimetable, fetchCourseDetail, fetchFriends, termLabel, slotColor, dayName, type TimetableSlot, type Friend } from '../timetable'
 import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../syllabus'
 import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
+
+// ── 友だちタブ ───────────────────────────────────────────────────────────────
+
+async function getAvatarURL(uid: string): Promise<string | null> {
+  try {
+    const { getDownloadURL, ref } = await import('firebase/storage')
+    const { storage } = await import('../firebase')
+    return await getDownloadURL(ref(storage, `avatars/${uid}`))
+  } catch {
+    return null
+  }
+}
+
+function friendAvatarHTML(name: string, url: string | null): string {
+  if (url) return `<img class="friend-avatar" src="${url}" alt="${name}" loading="lazy">`
+  const initial = (name ?? '?').charAt(0).toUpperCase()
+  return `<div class="friend-avatar friend-avatar--initial">${initial}</div>`
+}
+
+function friendsListHTML(friends: Friend[], avatars: (string | null)[]): string {
+  if (friends.length === 0) {
+    return `<div class="mypage-empty"><p>まだ友だちがいません。</p><p>アプリから友だち申請してみましょう。</p></div>`
+  }
+  return friends.map((f, i) => `
+    <button class="friend-card" data-uid="${f.uid}" data-name="${f.name}" type="button">
+      ${friendAvatarHTML(f.name, avatars[i])}
+      <div class="friend-info">
+        <span class="friend-name">${f.name}</span>
+        ${f.handle ? `<span class="friend-handle">@${f.handle}</span>` : ''}
+      </div>
+      <svg class="friend-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+  `).join('')
+}
+
+function friendTTHeaderHTML(name: string): string {
+  return `
+    <div class="friend-tt-header">
+      <button class="friend-back-btn" id="friend-back-btn" type="button">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        友だち一覧
+      </button>
+      <span class="friend-tt-name">${name} の時間割</span>
+    </div>
+  `
+}
+
+async function showFriendTimetable(panel: HTMLElement, friendUID: string, friendName: string) {
+  // ローディング表示
+  panel.innerHTML = `
+    ${friendTTHeaderHTML(friendName)}
+    <div class="mypage-loading"><div class="mypage-spinner"></div><span>読み込み中...</span></div>
+  `
+  bindFriendBack(panel)
+
+  try {
+    const slots = await fetchTimetable(friendUID)
+    const label = termLabel()
+    const hasSaturday = slots.some(s => s.day === 5)
+
+    const ttHTML = slots.length === 0
+      ? `<div class="mypage-empty"><p>${friendName}さんの時間割はまだ登録されていません。</p></div>`
+      : timetableMarkup(slots, label, hasSaturday)
+
+    panel.innerHTML = `${friendTTHeaderHTML(friendName)}${ttHTML}`
+    bindFriendBack(panel)
+
+    // コマクリックでモーダル表示（自分の時間割と同じ）
+    panel.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach(cell => {
+      cell.addEventListener('click', () => {
+        const raw = cell.getAttribute('data-course')
+        if (!raw) return
+        try { openCourseModal(JSON.parse(decodeURIComponent(raw))) } catch { /* ignore */ }
+      })
+    })
+  } catch {
+    panel.innerHTML = `
+      ${friendTTHeaderHTML(friendName)}
+      <div class="mypage-error"><p>時間割の取得に失敗しました。</p></div>
+    `
+    bindFriendBack(panel)
+  }
+}
+
+function bindFriendBack(panel: HTMLElement) {
+  panel.querySelector('#friend-back-btn')?.addEventListener('click', () => {
+    panel.querySelector<HTMLElement>('.friend-tt-section')?.removeAttribute('hidden')
+    panel.querySelector<HTMLElement>('.friend-list-section')?.removeAttribute('hidden')
+    // パネルを友達リスト表示に戻す
+    const listSection = panel.querySelector<HTMLElement>('.friend-list-section')
+    const ttSection   = panel.querySelector<HTMLElement>('.friend-tt-section')
+    if (listSection) listSection.hidden = false
+    if (ttSection)   ttSection.hidden   = true
+  })
+}
+
+async function loadFriendsTab(currentUID: string) {
+  const panel = document.getElementById('friends-panel-inner')
+  if (!panel) return
+
+  panel.innerHTML = `<div class="mypage-loading"><div class="mypage-spinner"></div><span>読み込み中...</span></div>`
+
+  try {
+    const friends = await fetchFriends(currentUID)
+    const avatars = await Promise.all(friends.map(f => getAvatarURL(f.uid)))
+
+    panel.innerHTML = `
+      <div class="friend-list-section">
+        ${friendsListHTML(friends, avatars)}
+      </div>
+      <div class="friend-tt-section" hidden></div>
+    `
+
+    panel.querySelectorAll<HTMLButtonElement>('.friend-card').forEach(card => {
+      card.addEventListener('click', () => {
+        const uid  = card.dataset.uid!
+        const name = card.dataset.name!
+        const listSection = panel.querySelector<HTMLElement>('.friend-list-section')!
+        const ttSection   = panel.querySelector<HTMLElement>('.friend-tt-section')!
+        listSection.hidden = true
+        ttSection.hidden   = false
+        showFriendTimetable(ttSection, uid, name)
+      })
+    })
+  } catch {
+    panel.innerHTML = `<div class="mypage-error"><p>友だちの取得に失敗しました。</p></div>`
+  }
+}
 
 // ── 現在時刻ライン ───────────────────────────────────────────────────────────
 let _nowLineTimer: ReturnType<typeof setInterval> | null = null
@@ -470,6 +598,14 @@ export async function renderMyPage(user: AuthUser) {
       <div class="mypage-tabs-bar">
         <button class="mypage-tab mypage-tab--active" id="tab-timetable" type="button">時間割</button>
         <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
+        <button class="mypage-tab" id="tab-friends" type="button">友だち</button>
+      </div>
+    `
+    const friendsPanel = `
+      <div id="tab-panel-friends" hidden>
+        <div id="friends-panel-inner" class="friends-panel">
+          <div class="mypage-loading"><div class="mypage-spinner"></div><span>読み込み中...</span></div>
+        </div>
       </div>
     `
     // モーダルは .reveal の transform 影響外に置くため document.body 直下に挿入
@@ -486,6 +622,7 @@ export async function renderMyPage(user: AuthUser) {
         ${tabsBar}
         <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
+        ${friendsPanel}
       `
     } else {
       const hasSaturday = slots.some((s) => s.day === 5)
@@ -497,6 +634,7 @@ export async function renderMyPage(user: AuthUser) {
         ${tabsBar}
         <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
+        ${friendsPanel}
       `
       // コマのクリックイベント
       container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
@@ -522,22 +660,32 @@ export async function renderMyPage(user: AuthUser) {
     startNowLine()
 
     // タブ切り替え
-    const showTab = (tab: 'timetable' | 'syllabus', pushHistory = true) => {
-      const isSyllabus = tab === 'syllabus'
-      document.getElementById('tab-panel-timetable')?.toggleAttribute('hidden', isSyllabus)
-      document.getElementById('tab-panel-syllabus')?.toggleAttribute('hidden', !isSyllabus)
-      document.getElementById('tab-timetable')?.classList.toggle('mypage-tab--active', !isSyllabus)
-      document.getElementById('tab-syllabus')?.classList.toggle('mypage-tab--active', isSyllabus)
-      if (isSyllabus) closeCourseModal()
+    let _friendsLoaded = false
+    type Tab = 'timetable' | 'syllabus' | 'friends'
+    const showTab = (tab: Tab, pushHistory = true) => {
+      (['timetable', 'syllabus', 'friends'] as Tab[]).forEach(t => {
+        document.getElementById(`tab-panel-${t}`)?.toggleAttribute('hidden', t !== tab)
+        document.getElementById(`tab-${t}`)?.classList.toggle('mypage-tab--active', t === tab)
+      })
+      if (tab !== 'timetable') closeCourseModal()
       if (pushHistory) history.pushState(null, '', location.search + `#${tab}`)
+      // 友だちタブは初回表示時にロード
+      if (tab === 'friends' && !_friendsLoaded) {
+        _friendsLoaded = true
+        loadFriendsTab(user.uid)
+      }
     }
     document.getElementById('tab-timetable')?.addEventListener('click', () => showTab('timetable'))
     document.getElementById('tab-syllabus')?.addEventListener('click',   () => showTab('syllabus'))
+    document.getElementById('tab-friends')?.addEventListener('click',    () => showTab('friends'))
     window.addEventListener('popstate', () => {
-      showTab(location.hash === '#syllabus' ? 'syllabus' : 'timetable', false)
+      const h = location.hash
+      showTab(h === '#syllabus' ? 'syllabus' : h === '#friends' ? 'friends' : 'timetable', false)
     })
     // 初期ロード: URL の hash でタブを決定
-    if (location.hash === '#syllabus') showTab('syllabus', false)
+    const initHash = location.hash
+    if (initHash === '#syllabus') showTab('syllabus', false)
+    else if (initHash === '#friends') showTab('friends', false)
 
     initSyllabusSearch(openCourseModal)
   } catch {

@@ -1,5 +1,27 @@
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, getDocs } from 'firebase/firestore'
 import { db } from './firebase'
+
+// ── 友だち ───────────────────────────────────────────────────────────────────
+
+export interface Friend {
+  uid: string
+  name: string
+  handle: string
+}
+
+export async function fetchFriends(currentUID: string): Promise<Friend[]> {
+  const snap = await getDocs(collection(db, 'users', currentUID, 'friends'))
+  return snap.docs
+    .map(d => {
+      const x = d.data() as Record<string, unknown>
+      return {
+        uid:    (x['friendUid']  as string) ?? '',
+        name:   (x['friendName'] as string) ?? '名前なし',
+        handle: (x['friendId']   as string) ?? '',
+      }
+    })
+    .filter(f => f.uid)
+}
 
 export interface Course {
   id: string
