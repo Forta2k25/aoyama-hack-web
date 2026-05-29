@@ -6,6 +6,66 @@ import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
 
+// ── 現在時刻ライン ───────────────────────────────────────────────────────────
+let _nowLineTimer: ReturnType<typeof setInterval> | null = null
+
+function updateNowLine() {
+  const scroll = document.querySelector<HTMLElement>('.tt-scroll')
+  const table  = document.querySelector<HTMLElement>('.tt-table')
+  if (!scroll || !table) return
+
+  const now    = new Date()
+  const curMin = now.getHours() * 60 + now.getMinutes()
+
+  const ranges = (Object.entries(PERIOD_TIMES) as [string, [string, string]][])
+    .map(([p, [s, e]]) => {
+      const [sh, sm] = s.split(':').map(Number)
+      const [eh, em] = e.split(':').map(Number)
+      return { period: Number(p), start: sh * 60 + sm, end: eh * 60 + em }
+    })
+    .sort((a, b) => a.period - b.period)
+
+  const firstStart = ranges[0].start
+  const lastEnd    = ranges[ranges.length - 1].end
+
+  let line = scroll.querySelector<HTMLElement>('.tt-now-line')
+
+  if (curMin < firstStart || curMin > lastEnd) {
+    if (line) line.hidden = true
+    return
+  }
+
+  const headerH = (table.querySelector('thead') as HTMLElement | null)?.offsetHeight ?? 37
+  const cellH   = 88
+
+  let topPx = headerH
+  for (let i = 0; i < ranges.length; i++) {
+    const { start, end } = ranges[i]
+    if (curMin >= start && curMin <= end) {
+      topPx = headerH + i * cellH + ((curMin - start) / (end - start)) * cellH
+      break
+    }
+    if (i < ranges.length - 1 && curMin > end && curMin < ranges[i + 1].start) {
+      topPx = headerH + (i + 1) * cellH
+      break
+    }
+  }
+
+  if (!line) {
+    line = document.createElement('div')
+    line.className = 'tt-now-line'
+    scroll.appendChild(line)
+  }
+  line.hidden = false
+  line.style.top = `${topPx}px`
+}
+
+function startNowLine() {
+  updateNowLine()
+  if (_nowLineTimer) clearInterval(_nowLineTimer)
+  _nowLineTimer = setInterval(updateNowLine, 60_000)
+}
+
 function courseDetailModalMarkup() {
   return `
     <div class="course-modal-overlay" id="course-modal" aria-modal="true" role="dialog" hidden>
@@ -442,6 +502,9 @@ export async function renderMyPage(user: AuthUser) {
       })
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCourseModal() })
     }
+    // 現在時刻ライン（時間割タブのみ）
+    startNowLine()
+
     // タブ切り替え
     const showTab = (tab: 'timetable' | 'syllabus', pushHistory = true) => {
       const isSyllabus = tab === 'syllabus'

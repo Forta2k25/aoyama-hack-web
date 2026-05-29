@@ -895,6 +895,30 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   -webkit-overflow-scrolling: touch;
   border-radius: 14px;
   box-shadow: 0 2px 16px rgba(0,0,0,.07);
+  position: relative;
+}
+
+/* 現在時刻ライン */
+.tt-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 38px, #ef4444 38px);
+  pointer-events: none;
+  z-index: 10;
+}
+.tt-now-line::before {
+  content: '';
+  position: absolute;
+  left: 38px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, .25);
 }
 .tt-table {
   width: 100%;
