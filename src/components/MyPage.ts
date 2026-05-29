@@ -14,6 +14,17 @@ function updateNowLine() {
   const table  = document.querySelector<HTMLElement>('.tt-table')
   if (!scroll || !table) return
 
+  let line = scroll.querySelector<HTMLElement>('.tt-now-line')
+
+  // 今日の曜日列を特定
+  const dayHeaders = [...table.querySelectorAll<HTMLElement>('.tt-day-header')]
+  const todayIdx   = dayHeaders.findIndex(h => h.classList.contains('tt-day-header--today'))
+  if (todayIdx === -1) {
+    // 今日が時間割に存在しない（土日など）
+    if (line) line.hidden = true
+    return
+  }
+
   const now    = new Date()
   const curMin = now.getHours() * 60 + now.getMinutes()
 
@@ -28,16 +39,14 @@ function updateNowLine() {
   const firstStart = ranges[0].start
   const lastEnd    = ranges[ranges.length - 1].end
 
-  let line = scroll.querySelector<HTMLElement>('.tt-now-line')
-
   if (curMin < firstStart || curMin > lastEnd) {
     if (line) line.hidden = true
     return
   }
 
+  // 縦位置（topPx）
   const headerH = (table.querySelector('thead') as HTMLElement | null)?.offsetHeight ?? 37
   const cellH   = 88
-
   let topPx = headerH
   for (let i = 0; i < ranges.length; i++) {
     const { start, end } = ranges[i]
@@ -51,13 +60,20 @@ function updateNowLine() {
     }
   }
 
+  // 横位置（今日の列のみ）
+  const cornerW = (table.querySelector<HTMLElement>('.tt-corner')?.offsetWidth) ?? 44
+  const colW    = (table.offsetWidth - cornerW) / dayHeaders.length
+  const colLeft = cornerW + todayIdx * colW
+
   if (!line) {
     line = document.createElement('div')
     line.className = 'tt-now-line'
     scroll.appendChild(line)
   }
-  line.hidden = false
-  line.style.top = `${topPx}px`
+  line.hidden      = false
+  line.style.top   = `${topPx}px`
+  line.style.left  = `${colLeft}px`
+  line.style.width = `${colW}px`
 }
 
 function startNowLine() {
