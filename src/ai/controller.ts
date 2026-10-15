@@ -1,3 +1,4 @@
+import { audioDurationSeconds } from './media'
 import { courseKey, offeringId } from './identity'
 import { fileKind, mimeFor, safeError } from './format'
 import { AIStore } from './store'
@@ -64,13 +65,13 @@ export class AIController {
   async stageFile(file:File){
     const type=fileKind(file),limit=type==='image'?20:type==='pdf'?25:100
     if(!file.size||file.size>limit*1024*1024)throw Error(`WEB_${type==='pdf'?'PDF':type==='image'?'画像':'音声'}は${limit}MB以下の空でないファイルを選んでください。`)
-    return this.stage(type,file.name,mimeFor(file,type),file.size,{file})
+    return this.stage(type,file.name,mimeFor(file,type),file.size,{file,...(type==='audio'?{durationSeconds:await audioDurationSeconds(file)}:{})})
   }
   async stageNote(text:string){
     if(!text.trim()||text.length>10000)throw Error('WEB_メモは1〜10,000文字で入力してください。')
     return this.stage('note','資料メモ','text/plain',new Blob([text]).size,{text:text.trim()})
   }
-  private async stage(type:SourceKind,title:string,mime:string,size:number,content:Pick<LocalMaterial,'file'|'text'>){
+  private async stage(type:SourceKind,title:string,mime:string,size:number,content:Pick<LocalMaterial,'file'|'text'|'durationSeconds'>){
     const row:LocalMaterial={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,clientRequestId:crypto.randomUUID(),context:structuredClone(this.context),type,title,mime,size,...content,state:'local',createdAt:Date.now()}
     // If the durable write fails (quota/private browsing), do not start any cloud write.
     await this.store.putMaterial(row);this.lifetime.signal.throwIfAborted();this.materials.push(row);this.notify();void this.sendMaterial(row)
@@ -82,7 +83,8 @@ export class AIController {
     const request=new AbortController(),stop=()=>request.abort();this.lifetime.signal.addEventListener('abort',stop,{once:true});this.requests.set(row.id,request)
     try{
       row.state='uploading';row.error=undefined;await this.save(row)
-      const receipt=row.remote?await this.backend.retry(row.remote.sourceId,request.signal):await this.backend.create({clientRequestId:row.clientRequestId,type:row.type,title:row.title,mime:row.mime,size:row.size,...(row.text?{text:row.text}:{}),context:row.context},request.signal)
+      if(row.type==='audio'&&!row.durationSeconds){if(!row.file)throw Error('WEB_再送する音声原本がありません。m4aから追加し直してください。');row.durationSeconds=await audioDurationSeconds(row.file);await this.save(row)}
+      const receipt=row.remote?await this.backend.retry(row.remote.sourceId,request.signal):await this.backend.create({clientRequestId:row.clientRequestId,type:row.type,title:row.title,mime:row.mime,size:row.size,...(row.text?{text:row.text}:{}),...(row.durationSeconds?{durationSeconds:Math.ceil(row.durationSeconds)}:{}),context:row.context},request.signal)
       request.signal.throwIfAborted();row.remote=persistentSource(receipt);await this.save(row)
       if(row.wantsDeletion){await this.removeRemoteAndLocal(row);return}
       let uploadMs:number|undefined

@@ -28,12 +28,13 @@ export function fileKind(file: File): SourceKind {
   const name = file.name.toLowerCase()
   if (file.type === 'application/pdf' || name.endsWith('.pdf')) return 'pdf'
   if (/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) || /\.(jpg|jpeg|png|webp|heic|heif)$/.test(name)) return 'image'
-  if (/\.(m4a|mp3|wav)$/.test(name) || /^audio\/(mp4|mpeg|wav|x-wav|x-m4a)$/.test(file.type)) return 'audio'
-  throw Error('写真（JPEG・PNG等）、PDF、m4a・mp3・wavを選んでください。')
+  if (/\.m4a$/.test(name) || /^audio\/(mp4|x-m4a)$/.test(file.type)) return 'audio'
+  if (/^audio\//.test(file.type)||/\.(mp3|wav|webm|aiff|ogg)$/.test(name))throw Error('WEB_本番AIで受け付ける音声はm4aです。m4aへ変換してから追加してください。')
+  throw Error('写真（JPEG・PNG等）、PDF、m4aを選んでください。')
 }
 export function mimeFor(file: File, type: SourceKind): string {
   if (type === 'pdf') return 'application/pdf'
-  if (type === 'audio') return file.name.endsWith('.wav') ? 'audio/wav' : file.name.endsWith('.mp3') ? 'audio/mpeg' : 'audio/mp4'
+  if (type === 'audio') return 'audio/mp4'
   return file.type || (/\.png$/i.test(file.name) ? 'image/png' : /\.webp$/i.test(file.name) ? 'image/webp' : /\.hei[cf]$/i.test(file.name) ? 'image/heic' : 'image/jpeg')
 }
 export function safeError(error: unknown): string {
@@ -44,5 +45,6 @@ export function safeError(error: unknown): string {
   if (/resource-exhausted|RATE_LIMIT|QUOTA/.test(code)) return '利用上限または一時的な混雑です。時間を置いて再試行してください。'
   if (error instanceof Error && error.name === 'AbortError') return '中断しました。資料は再送できます。'
   if (error instanceof Error && error.message.startsWith('WEB_')) return error.message.slice(4)
-  return '処理に失敗しました。接続を確認して再試行してください。'
+  const diagnostic=typeof code==='string'&&code.length<=64&&(/^(?:AI_|INVALID_|UNSUPPORTED_|UPLOAD_|PROVIDER_|AUDIO_|SOURCE_|STORAGE_|INPUT_|PDF_|IMAGE_|DURATION_|MIME_)[A-Z0-9_]+$/.test(code)||/^(?:functions\/)?(?:invalid-argument|permission-denied|internal|unavailable|deadline-exceeded|failed-precondition|unknown)$/.test(code))?`（${code}）`:''
+  return `処理に失敗しました。接続を確認して再試行してください。${diagnostic}`
 }

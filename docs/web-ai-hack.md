@@ -194,17 +194,64 @@ Git・localStorageへUID実値やtokenを出力しない。Googleの同じメー
 アカウント連携・許可リスト・Firestore/Storage Rulesの変更機能は持たない。
 本番サイトのfeature gateがOFFなら、診断パネルも表示しない。
 
-## Web pilot追加の途中状態
+## Web pilot追加と本番実通信の確認結果（2026-10-15）
 
-本人の明示承認後、既存2 UIDを残して本人のWeb UID 1件を追加するenv-only更新を実施。
-更新済みはaiProcessSource / aiGetSource / aiListSources / aiGetEvidence / aiRetrieveContext /
-aiRetrySource / aiUpdateSource / aiDeleteSource / aiCreateSource / aiCompleteSourceの10件。
-それぞれsource archive checksum・runtime・SA・IAM・UID以外のenvを照合。
+本人の明示承認後、既存2 UIDを残してWeb UID 1件を追加。以下11 Functionsの
+AI_INPUT_ALLOWED_UIDSは同じ3件で、sharing=false、AI_FIRESTORE_DATABASE_ID=aogaku-ai。
+UID実値・token・非公開config・operation記録はGit除外のbuild/配下だけに保持する。
 
-最後のaiChatは、作業中に別のsource更新（revision 00002から00003）を検出したため未変更。
-最新sourceを維持したenv-only追記の確認待ち。更新済み10件を再PATCHしない。
-この時点ではAI返信・4入力E2Eは完了していない。UID実値・非公開config・operation記録は
-Git除外のbuild/配下だけに保持する。queueはRUNNING、SchedulerはPAUSED、sharing=false。
+- aiProcessSource / aiGetSource / aiListSources / aiGetEvidence / aiRetrieveContext
+- aiRetrySource / aiUpdateSource / aiDeleteSource / aiCreateSource / aiCompleteSource / aiChat
+
+最後のaiChatは作業中の別source更新を検出して停止し、最新source保持の追加承認後に
+環境設定だけを更新。workerも別source更新を検出し、追加承認後の最新revisionを保持。
+成功済み10件を再PATCHせず、aiChatだけ00003-cof → 00004-tigへ更新した。
+ソースarchiveの不変確認にはGCS objectのmd5Hash/crc32c/size metadataを使い、
+アプリのsource ZIP本体は取得していない。Web以外のrepositoryや作業コピーは変更していない。
+
+最終read-only auditで11件すべてACTIVE、allowlist 3件、完了時metadata一致、
+他Functions不変、queue RUNNING、Scheduler PAUSED、sharing OFFを確認。
+Rules / indexes / Secret metadata/version / lifecycle / IAMの変更は行っていない。
+本ターンのproduction mutationはaiChat 1件の承認済みenv-only PATCHと、本人用の架空資料
+保存・provider処理だけ。前段で承認されたlocalhost:5178 PUT CORSは維持。
+
+### 実ブラウザでの本番E2E
+
+localhost:5178/mypageで本人の時間割から同じ授業の左パネルを開いて確認した。
+既存シラバスとAIチャットの切替、資料・会話の再読込復元、本文表示にPASS。
+授業側の5桁IDがない場合も推測せず、YR年度と永続local UUIDで本人専用として保存する。
+
+| 架空入力 | 本番結果 |
+| --- | --- |
+| メモ | ready、本文取得、12 + 8 = 20という根拠付き実AI返信 |
+| 3-label矢印PNG | image-auto-v1 / multimodal_ai、矢印2本の関係をEvidenceと返信で保持 |
+| 1-page native PDF | pdf-auto-v1 / native_text、最終本文と[p.1]を保持 |
+| 日本語m4a合成音声 | audio-groq-v2 / groq / whisper-large-v3-turbo、ノート冊数を正しく文字起こし |
+
+画像とチャットは、承認して保持した最新backendの実metadataで
+**gemini / gemini-3.5-flash-lite**を返した。以前のQwen表示へ上書きしていない。
+画像: input 1,753 / output 160 / total 1,913 tokens、processing 4.68秒、推定$0.002426。
+メモへの返信: 488 / 43 / 531 tokens、1.06秒、推定$0.000254。
+画像への返信: 590 / 101 / 691 tokens、1.07秒、推定$0.000429。
+日本語音声: 実測10.2秒、processing 1.84秒、推定$0.000112。
+金額・料金基準日はbackendの返却値。実請求額の検証や料金設定変更はしていない。
+
+WAVは作成前にUNSUPPORTED_TYPE、durationのない/小数秒m4aはINVALID_DURATIONで拒否された。
+Webを本番受付契約に合わせ、m4aのみ選択可能とし、media metadataから実測した長さを
+整数秒へ切り上げてdurationSecondsとして送る。ファイルサイズから時間を推測しない。
+既存失敗m4aは同じclientRequestIdのまま再送して成功。音声をtoken課金扱いにしない。
+英語の合成音声は文字起こしが不正確だった。日本語fixtureの成功と混同せず、
+英語対応や長時間録音の品質は別の確認項目として残す。
+
+本番の架空資料5件（メモ・PNG・PDF・英語m4a・日本語m4a）と会話2往復は本人用に残した。
+非対応WAVの失敗行はローカルのみ。原本・署名URL・provider raw response・本番Evidence・
+private registry・音声/画像/PDFバイナリはcommitしない。削除競合やaccount deletionは今回未実施。
+マイク実録音、長いPDFの途中表示、別の認証済み非pilotによる拒否の再検証も今回未実施。
+10 Callableの匿名401は実通信確認済み。既存の非pilot gateを開放していない。
+
+ローカル最終検証: 24 tests PASS、TypeScript/Vite build、ai-preview build、
+Web境界・本番host feature gate・staged privacy/既知UID scanを実行。
+GitHubはcodex/web-ai-hackのみへ保存し、main・本番Web配信・PRは変更しない。
 
 読取auditでは、FirestoreのearliestVersionTimeとetagが書込なしでも変化することを確認。
 比較guardはこの2項目だけ除外し、updateTimeを含むその他の全設定を検証する。

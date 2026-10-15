@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { indexedDB } from 'fake-indexeddb'
 import { AIStore } from '../src/ai/store.ts'
 import { syllabusYear,makeContext,courseKey,offeringId } from '../src/ai/identity.ts'
-import { evidenceText,fileKind,metadataText } from '../src/ai/format.ts'
+import { evidenceText,fileKind,metadataText,safeError } from '../src/ai/format.ts'
 import { AIController,persistentSource } from '../src/ai/controller.ts'
 import { validateUpload } from '../src/ai/upload.ts'
 import { aiEnabled } from '../src/ai/access.ts'
@@ -15,8 +15,8 @@ const course={id:'synthetic-id',title:'架空授業',teacher:'架空教員',room
 const sleep=(ms:number)=>new Promise(r=>setTimeout(r,ms))
 async function until(check:()=>boolean){for(let i=0;i<200&&!check();i++)await sleep(5);assert(check(),'operation did not settle')}
 class Backend extends DemoAIBackend {
-  calls:ChatRequest[]=[];createIds:string[]=[];deletions:string[]=[];failUpload=false;createWait?:Promise<void>
-  override async create(data:any):Promise<Receipt>{this.createIds.push(data.clientRequestId);await this.createWait;const x=await super.create(data);return data.type==='note'?x:{...x,status:'awaiting_upload',upload:{url:'https://storage.googleapis.com/fixture'}}}
+  calls:ChatRequest[]=[];createIds:string[]=[];createInputs:any[]=[];deletions:string[]=[];failUpload=false;createWait?:Promise<void>
+  override async create(data:any):Promise<Receipt>{this.createIds.push(data.clientRequestId);this.createInputs.push(data);await this.createWait;const x=await super.create(data);return data.type==='note'?x:{...x,status:'awaiting_upload',upload:{url:'https://storage.googleapis.com/fixture'}}}
   override async upload(...args:Parameters<DemoAIBackend['upload']>){if(this.failUpload)throw Error('upload unavailable');await super.upload(...args)}
   override async chat(request:ChatRequest){this.calls.push(request);return {text:'資料に基づく架空のテスト返信'}}
   override async delete(id:string){this.deletions.push(id);await super.delete(id)}
@@ -71,7 +71,7 @@ test('selected Qwen finalText and page/time locators survive chunk presentation 
 })
 test('file validation is conservative and does not send unsupported browser webm as m4a',()=>{
   assert.equal(fileKind(new File(['x'],'note.pdf',{type:'application/pdf'})),'pdf');assert.equal(fileKind(new File(['x'],'voice.m4a')),'audio')
-  assert.throws(()=>fileKind(new File(['x'],'voice.webm',{type:'audio/webm'})));assert.throws(()=>fileKind(new File(['x'],'page.html',{type:'text/html'})))
+  for(const ext of ['wav','mp3','webm'])assert.throws(()=>fileKind(new File(['x'],`voice.${ext}`,{type:`audio/${ext}`})),/m4a/);assert.throws(()=>fileKind(new File(['x'],'page.html',{type:'text/html'})))
 })
 test('upload targets bind to exact production bucket and current owner; credential headers rejected',()=>{
   const base='https://storage.googleapis.com/forta-aogaku.firebasestorage.app/ai-inputs/aogaku-ai/synthetic-owner/source/original'
@@ -95,4 +95,18 @@ test('two rapid chat submits admit at most one request, including during Indexed
 test('legacy OCR overlap is removed within a unit but repeated text on another page survives',()=>{
  const rows=[{chunkId:'1',text:'保存済みOCRの重なり',method:'vision_ocr',locator:{pageNumber:1}},{chunkId:'2',text:'重なりと続き',method:'vision_ocr',locator:{pageNumber:1}},{chunkId:'3',text:'保存済みOCRの重なり',method:'vision_ocr',locator:{pageNumber:2}}]
  const text=evidenceText(rows);assert(text.includes('保存済みOCRの重なりと続き'));assert.equal((text.match(/保存済みOCR/g)??[]).length,2)
+})
+
+test('failure diagnostics expose only bounded error codes, never URLs or arbitrary error messages',()=>{
+ assert.match(safeError({details:{code:'INVALID_MIME'}}),/INVALID_MIME/)
+ for(const code of ['https://example.test/private','private-value-123456789','x'.repeat(100)])assert(!safeError({details:{code}}).includes(code))
+ assert(!safeError(Error('private response')).includes('private response'))
+})
+
+test('resuming a durable m4a keeps its measured duration and sends integer seconds with the same request ID',async()=>{
+ const store=new AIStore(),backend=new Backend(),uid=crypto.randomUUID(),id=crypto.randomUUID(),requestId=crypto.randomUUID()
+ await store.putMaterial({id,uid,courseKey:courseKey(context),context,clientRequestId:requestId,type:'audio',title:'synthetic.m4a',mime:'audio/mp4',size:3,file:new Blob(['aac']),durationSeconds:8.04,state:'failed',createdAt:Date.now()})
+ const c=new AIController(uid,context,backend,store,()=>{});await c.init();await c.retry(id)
+ assert.equal(backend.createInputs[0].durationSeconds,9);assert.equal(backend.createInputs[0].clientRequestId,requestId);assert.equal(backend.createInputs[0].type,'audio');assert.equal(backend.createInputs[0].mime,'audio/mp4')
+ assert.equal((await store.materials(uid,courseKey(context)))[0].durationSeconds,8.04);c.dispose()
 })

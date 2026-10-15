@@ -33,7 +33,7 @@ export interface ChatRequest { context: CourseContext; courseOfferingId?: string
 export interface ChatReply { text: string; recognition?: Recognition }
 export interface AIBackend {
   readonly demo: boolean
-  create(data: { clientRequestId: string; type: SourceKind; title: string; mime: string; size: number; text?: string; context: CourseContext }, signal: AbortSignal): Promise<Receipt>
+  create(data: { clientRequestId: string; type: SourceKind; title: string; mime: string; size: number; text?: string; durationSeconds?: number; context: CourseContext }, signal: AbortSignal): Promise<Receipt>
   complete(sourceId: string, uploadMs: number | undefined, signal: AbortSignal): Promise<RemoteSource>
   retry(sourceId: string, signal: AbortSignal): Promise<Receipt>
   get(sourceId: string, signal: AbortSignal): Promise<RemoteSource>
@@ -45,7 +45,7 @@ export interface AIBackend {
 }
 export interface LocalMaterial {
   id: string; uid: string; courseKey: string; context: CourseContext; clientRequestId: string
-  type: SourceKind; title: string; mime: string; size: number; text?: string; file?: Blob
+  type: SourceKind; title: string; mime: string; size: number; text?: string; file?: Blob; durationSeconds?: number
   remote?: RemoteSource; state: 'local' | 'uploading' | 'processing' | 'ready' | 'failed' | 'deleting'
   error?: string; wantsDeletion?: boolean; createdAt: number
 }

@@ -32,7 +32,7 @@ export class CourseAI {
     this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=3;this.textarea.setAttribute('aria-label','AIへのメッセージ')
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
     const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
-    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,audio/mp4,audio/mpeg,audio/wav,.m4a,.mp3,.wav';fileInput.hidden=true
+    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,audio/mp4,.m4a';fileInput.hidden=true
     menuBody.append(button('写真・PDF・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
     this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
@@ -71,7 +71,7 @@ export class CourseAI {
   private async toggleRecording(){
     if(this.record?.state==='recording'){this.record.stop();return}
     try{
-      if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'||!MediaRecorder.isTypeSupported('audio/mp4'))throw Error('WEB_このブラウザではm4a録音に対応していません。m4a・mp3・wavファイルを追加してください。')
+      if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'||!MediaRecorder.isTypeSupported('audio/mp4'))throw Error('WEB_このブラウザではm4a録音に対応していません。m4aファイルを追加してください。')
       this.audio=await navigator.mediaDevices.getUserMedia({audio:true});if(this.disposed){this.audio.getTracks().forEach(x=>x.stop());return}
       const chunks:Blob[]=[];this.record=new MediaRecorder(this.audio,{mimeType:'audio/mp4'})
       this.record.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)}
