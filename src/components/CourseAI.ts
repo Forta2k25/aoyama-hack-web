@@ -18,7 +18,7 @@ export class CourseAI {
   constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore()){this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
     this.root.replaceChildren();this.root.classList.add('web-ai')
-    this.notice.textContent=this.backend.demo?'デバッグ専用・架空の応答です。Firebase／外部AIへは送信しません。':'内部テスト中・自分の資料のみ。既存のサーバー許可リストで利用可否を確認します。'
+    this.notice.textContent=this.backend.demo?'デバッグ専用・架空の応答です。Firebase／外部AIへは送信しません。':'本番接続 · forta-aogaku · 自分の資料のみ。利用には既存pilotの許可が必要です。'
     this.root.append(this.notice)
     const identity=el('p','ai-course-identity');identity.textContent='授業を確認しています…';this.root.append(identity)
     const header=el('div','ai-materials-header');header.append(el('h3','','授業の資料'),el('span','','画像・PDF・音声・メモ'));this.root.append(header,this.materials)

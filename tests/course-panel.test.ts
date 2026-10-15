@@ -19,7 +19,7 @@ test('late syllabus A response never replaces selected course B or its AI panel'
  openCourseModal(c('A'));openCourseModal(c('B'));resolves.get('B')!({});await flush();resolves.get('A')!({});await flush()
  const root=document.getElementById('course-side-body')!;assert(root.textContent!.includes('授業B'));assert(!root.textContent!.includes('授業A'))
  assert.equal(root.querySelectorAll('[role=tab]').length,2)
- root.querySelectorAll<HTMLButtonElement>('[role=tab]')[1].click();await flush();assert(root.querySelector('.web-ai'));assert(root.querySelector<HTMLButtonElement>('[role=tab][aria-selected=true]')!.textContent!.includes('AIハック'))
+ root.querySelectorAll<HTMLButtonElement>('[role=tab]')[1].click();await flush();assert(root.querySelector('.web-ai'));assert(root.querySelector<HTMLButtonElement>('[role=tab][aria-selected=true]')!.textContent!.includes('AIチャット'))
  closeCourseModal();assert(!document.getElementById('course-side-panel')!.classList.contains('is-open'));assert.equal(document.getElementById('course-side-body')!.textContent,'')
 })
 test('friend course detail keeps syllabus only; shared backend is never opened on that path',async()=>{

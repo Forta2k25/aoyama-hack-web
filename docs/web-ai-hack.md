@@ -11,7 +11,8 @@ npm ci
 npm run dev:ai
 ```
 
-表示されたlocalhostの `/ai-debug` を開く。ログイン不要。架空の授業・架空の返信で、
+UIデモは `/ai-debug` を開く。ログイン不要。実通信を試す入口は **`http://localhost:5178/mypage#timetable`**（下記の固定port起動時）。
+デモ上部の「本番の時間割・AIチャットへ」でも移動できる。架空の授業・架空の返信で、
 資料の追加、端末保存、途中本文、最終本文、チャット、再読み込み後の復元を確認できる。
 **この画面の返信は外部AIの結果ではない。** Firebase・Vision・Groqを呼ばない。
 デバッグ画面はFirebase/authをimportする通常サイトとは別のbootstrapで起動する。
@@ -20,9 +21,16 @@ localhostサイトデータから消去する。実アカウントのデータ�
 
 ## 通常の時間割から
 
+```sh
+npm run dev:ai -- --port 5178 --strictPort
+```
+
+`http://localhost:5178/mypage#timetable` を開く。`127.0.0.1` は同じMacを指すが、
+Authの承認済みdomain・ブラウザ保存・CORSではlocalhostと別なので混用しない。
+
 同じ開発サーバーの `/mypage` へ、アプリでGoogle連携済みの同じアカウントでログインする。
 授業を選ぶと、デスクトップでは左パネル、モバイルでは授業ダイアログに
-「シラバス / AIハック」が現れる。友だちの時間割ではAIタブを出さない。
+「シラバス / AIチャット」が現れる。友だちの時間割ではAIタブを出さない。
 
 - 写真・PDF・m4a/mp3/wav、資料メモに対応。原本をIndexedDBに保存してから送信する。
 - 録音は `MediaRecorder` の `audio/mp4` 対応ブラウザのみ。マイク許可は利用者が選択する。
@@ -76,7 +84,8 @@ localUUIDからcanonical offeringへの自動付け替え・共有は追加し�
 3. ログイン先のlocalhost/preview domainがFirebase Authの承認済みドメインに含まれること。
 4. 署名付きXML Storage PUTには、利用するWeb originと必要なPUT/headerを許可する
    bucket CORSが必要。iOSで送信できてもブラウザではCORS拒否になり得る。
-   CORSの既存設定は読取・変更していない。失敗時は原本をローカルに残し再送を案内する。
+   2026-10-15のread-only確認ではCORS設定は空。localhostからの署名付きPUTに
+   必要なCORS追加は別途承認の回答待ち。失敗時は原本をローカルに残し再送を案内する。
    `no-cors`で回避したり、公開bucketへ変更したり、サーバーキーをWebへ置いたりしない。
 5. CallableのCORS/App Check/IAMがブラウザからの既存Firebase clientを許可していること。
 
@@ -112,6 +121,8 @@ UIのデモPASSを、外部provider実通信PASSと報告してはならない�
 npm test
 npm run build
 npm run build:ai-preview
+# 明示実行時だけ、本番Callableの匿名拒否とlocalhost CORSを確認する
+npm run check:ai-live-anonymous
 VERCEL_ENV=production npm run build:ai-preview
 ```
 
@@ -144,3 +155,18 @@ UIデバッグでは資料メモ、画像、PDF、音声ファイル、チャッ
 開発環境はNode 24で検証。module mockを含むテストには実験flagを付けている。
 元mainの固定依存にnpm auditの既存指摘があり、この機能のための一括upgradeは行っていない。
 一般公開前に別途依存関係の更新・audit確認を行う。
+
+## 本番接続のread-only確認（2026-10-15）
+
+- Project ID/numberを照合。aiChat / aiCreateSource / aiGetEvidence / aiProcessSourceはACTIVE、
+  Node22、named databaseはaogaku-ai。取得metadata上のpilotは2件、sharing=false。UID実値は記録しない。
+- 資料系9 CallableとaiChatの計10件へlocalhost originの匿名POSTを実施。
+  すべて401 UNAUTHENTICATED。CallableのCORSは当該originを返す。資料作成やprovider処理はしていない。
+- Auth承認済みdomainにはlocalhostが存在。127.0.0.1は未登録。
+- Storage bucketのCORSは空。実ファイルuploadの確認には、既存Rules/IAMを保持した
+  localhost限定PUTのCORS追加承認が必要。
+- pilotログイン後のメモ/チャット/ファイルE2Eは未確認。匿名拒否を実通信成功とは扱わない。
+- 共有Functions/Rules/IAM/Secret、アプリのコード・作業コピーは変更していない。
+
+本番Webサイトaoyamahack.comは変更しない。ここで「本番接続」はfeature branchの
+ローカルWebが既存本番Firebaseへ接続する意味であり、Webの一般公開を意味しない。

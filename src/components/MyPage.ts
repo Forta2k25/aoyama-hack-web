@@ -403,7 +403,7 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
       })().catch(()=>{if(ticket===_courseRequest&&aiHost)aiHost.textContent='AIハックの準備に失敗しました。授業を開き直してください。'})
     }
   }
-  for(const [tab,title]of [['syllabus','シラバス'],['ai','AIハック ✦']] as const){
+  for(const [tab,title]of [['syllabus','シラバス'],['ai','AIチャット ✦']] as const){
     if(tab==='ai'&&!available)continue
     const button=document.createElement('button');button.type='button';button.textContent=title;button.setAttribute('role','tab');button.id=`course-${ticket}-tab-${tab}`;button.setAttribute('aria-controls',`course-${ticket}-panel-${tab}`)
     button.addEventListener('click',()=>selectTab(tab));button.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const next=activeTab==='syllabus'?'ai':'syllabus';if(available){selectTab(next);buttons[next==='ai'?1:0].focus()}}});buttons.push(button);tabs.append(button)

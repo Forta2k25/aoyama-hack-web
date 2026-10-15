@@ -76,3 +76,6 @@
 .ai-debug-chat { padding:26px;background:white;border:1px solid #e0e9df;border-radius:22px;box-shadow:0 12px 50px #36533d0a }
 @media(max-width:799px){.course-modal-card:has(.web-ai) { width:min(94vw,560px);padding:25px 18px }.ai-debug-shell { padding:18px }.ai-debug-main { display:block;margin:20px auto }.ai-debug-course { padding-top:0 }.ai-debug-course h1 { font-size:25px }.ai-debug-chat { padding:16px }.ai-thread { max-height:360px }.course-panel--ai .course-modal-scroll { max-height:80vh }}
 @media(prefers-reduced-motion:reduce){.ai-thread { scroll-behavior:auto }}
+
+.ai-debug-header { flex-wrap:wrap;gap:12px }
+.ai-live-link { margin-left:auto;border:1px solid #33836d;border-radius:20px;padding:8px 16px;font-size:13px }

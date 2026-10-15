@@ -10,7 +10,8 @@
     "dev:ai": "vite --host 127.0.0.1 --mode ai-preview",
     "build:ai-preview": "tsc && vite build --mode ai-preview",
     "test": "node --experimental-test-module-mocks --import tsx --test tests/*.test.ts",
-    "check:ai-boundaries": "node scripts/check-ai-boundaries.mjs"
+    "check:ai-boundaries": "node scripts/check-ai-boundaries.mjs",
+    "check:ai-live-anonymous": "node scripts/check-ai-live-anonymous.mjs"
   },
   "devDependencies": {
     "@vercel/node": "^5.8.4",
