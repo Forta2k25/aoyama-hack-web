@@ -296,3 +296,15 @@ IndexedDBはversion 2へ非破壊upgrade。旧messages/materials/identitiesを�
 実ブラウザでも火曜の第4回(10/13)から専用チャットが開くことを確認。
 パネル内クリックで要素を置換しても外側クリックと誤判定しないようcomposedPathを使用。
 今回は本番backend設定・deploy・データ移行は行っていない。
+
+### 時間割年度とシラバス参照年度の分離
+
+一部の2026年度時間割に前年YRのシラバスURLが残り、日程計算までcontext.yearを参照して
+「初回授業日を設定」の空画面になる不具合を修正した。日程は時間割document由来の
+academicYearを優先し、未取得の場合だけシラバス由来context.yearを使う。現在年には補完しない。
+授業識別・snapshotのYR優先順位、courseOfferingId、local UUID、会話保存keyは変更しない。
+年度が異なる場合は画面に日程の根拠を明示する。
+
+実ブラウザで該当する水曜授業が9/16 → 9/30 → 10/7 → 10/14（第4回）となることを確認。
+シラバスYRが前年でも自動カードを表示し、選択日がAPI contextへ渡る一方、参照年度は
+書き換えないことをUI/単体テストで確認。Functions/Rules/IAM/Secretへの変更はない。

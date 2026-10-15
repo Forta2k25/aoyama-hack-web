@@ -23,3 +23,11 @@ test('lecture cards open separate conversations, preserve return/reload, and iso
  assert.equal(backend.requests.length,1);assert.equal(backend.requests[0].context.dayID,Math.floor(Date.parse('2026-10-13')/86400000))
  const restored=new CourseAI(root,course,uid,backend,new AIStore());await restored.mount();root.querySelector<HTMLButtonElement>('.ai-lecture-card')!.click();await flush(()=>root.textContent!.includes('第4回だけの質問'));restored.dispose()
 })
+
+test('a 2026 timetable with a 2025 syllabus link still renders dated cards without rewriting the chat offering year',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-15T12:00:00Z')})
+ const root=document.getElementById('root')!,backend=new Backend(),course={id:'#####',title:'架空の水曜授業',teacher:'架空教員',room:'',academicYear:2026,semester:'fall',meetingDay:2,campus:'青山',timetableRecord:'assignedCourses.2026_後期:cells.d2p1',syllabusURL:'https://syllabus.aoyama.ac.jp/shousai.ashx?YR=2025&FN=synthetic'}
+ const view=new CourseAI(root,course,crypto.randomUUID(),backend);await view.mount();assert.equal(root.querySelectorAll('.ai-lecture-card').length,4);assert.match(root.textContent!,/10\/14/);assert.match(root.textContent!,/時間割の2026年度/)
+ root.querySelector<HTMLButtonElement>('.ai-lecture-card')!.click();await flush(()=>!!root.querySelector('textarea:not([disabled])'));root.querySelector<HTMLTextAreaElement>('.ai-composer-input')!.value='この授業回のテスト';root.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));await flush(()=>root.textContent!.includes('この授業回だけの返信'))
+ assert.equal(backend.requests[0].context.year,2025);assert.equal(backend.requests[0].context.dayID,Math.floor(Date.parse('2026-10-14')/86400000));view.dispose()
+})

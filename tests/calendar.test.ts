@@ -29,3 +29,20 @@ test('adjusting cancellations changes display numbering without moving saved dat
  assert.notEqual(a.meetings[0].number,b.meetings[0].number)
  assert.equal(sessionKey({...context,dayID:a.meetings[0].dayID}),sessionKey({...context,dayID:b.meetings[0].dayID}))
 })
+
+test('an older syllabus YR does not suppress the enrollment timetable calendar or rewrite offering identity',()=>{
+ const c={...course,meetingDay:2,syllabusURL:'https://syllabus.aoyama.ac.jp/shousai.ashx?YR=2025&FN=synthetic',firestoreDocID:'00004'}
+ const context=makeContext(c,'synthetic-course'),before=structuredClone(context)
+ assert.equal(context.year,2025)
+ const r=lectureSchedule(c,context,{},'2026-10-15')
+ assert(r.official);assert.deepEqual(r.meetings.map(x=>[x.number,x.date]),[[4,'2026-10-14'],[3,'2026-10-07'],[2,'2026-09-30'],[1,'2026-09-16']])
+ assert.match(r.notice,/時間割の2026年度/);assert.match(r.notice,/参照年度は2025年度/);assert.deepEqual(context,before);assert.equal(context.year,2025)
+})
+test('calendar year uses explicit enrollment data, then syllabus identity, and never the current year',()=>{
+ const noEnrollment={...course,academicYear:undefined},context=makeContext(noEnrollment,'synthetic')
+ assert.equal(lectureSchedule(noEnrollment,context,{},'2026-10-15').meetings.length,0)
+ const linked={...noEnrollment,syllabusURL:'https://syllabus.aoyama.ac.jp/shousai.ashx?YR=2026&FN=synthetic'}
+ assert(lectureSchedule(linked,makeContext(linked,'synthetic'),{},'2026-10-15').official)
+ const oldEnrollment={...linked,academicYear:2025}
+ assert.equal(lectureSchedule(oldEnrollment,makeContext(oldEnrollment,'synthetic'),{},'2026-10-15').meetings.length,0)
+})

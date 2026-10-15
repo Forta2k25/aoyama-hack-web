@@ -18,7 +18,12 @@ export function meetingDay(course:Course):number|undefined {
 export function lectureSchedule(course:Course,context:CourseContext,settings:LectureSettings={},today=japanDate()){
  const annual=course.teachingTerm?.includes('通年'),term=annual?'year':context.semester
  const campus=settings.campus??(/相模原/.test(course.campus??'')?'sagamihara':/青山/.test(course.campus??'')?'aoyama':undefined)
- const official=context.year===2026&&['spring','fall','year'].includes(term??'')
+ // Enrollment calendar and syllabus/catalog identity have different sources of truth.
+ // An old YR link must not suppress the current timetable's class dates.
+ const year=course.academicYear
+ const enrollmentYear=typeof year==='number'&&Number.isInteger(year)&&year>=1900&&year<=2200?year:undefined
+ const calendarYear=enrollmentYear??context.year
+ const official=calendarYear===2026&&['spring','fall','year'].includes(term??'')
  const first=settings.firstDate&&validDate(settings.firstDate)?settings.firstDate:undefined
  const weekday=first?(new Date(first+'T00:00:00Z').getUTCDay()+6)%7:meetingDay(course)
  if(weekday===undefined||weekday>5||(!official&&!first))return {meetings:[] as LectureMeeting[],notice:'初回授業日を設定すると、授業回ごとのチャットを作成できます。',provisional:true,official:false}
@@ -38,5 +43,7 @@ export function lectureSchedule(course:Course,context:CourseContext,settings:Lec
  const visible=rows.filter(x=>x.dayID<=monday+6)
  if(!visible.length&&rows.length)visible.push(rows[0])
  const provisional=!official||!campus
- return {meetings:visible.reverse(),notice:official?(!campus?'2026年度学部学事暦から算出。キャンパス別休講と授業独自の休講は日程設定で確認してください。':'2026年度学部学事暦から算出。授業独自の休講・補講は日程設定で調整できます。'):'初回授業日から週1回として算出。休講日は日程設定で除外してください。',provisional,official}
+ const basis=official?(!campus?'2026年度学部学事暦から算出。キャンパス別休講と授業独自の休講は日程設定で確認してください。':'2026年度学部学事暦から算出。授業独自の休講・補講は日程設定で調整できます。'):'初回授業日から週1回として算出。休講日は日程設定で除外してください。'
+ const mismatch=enrollmentYear!==undefined&&context.year!==undefined&&enrollmentYear!==context.year?`時間割の${enrollmentYear}年度に基づく日程です（シラバスの参照年度は${context.year}年度）。`:''
+ return {meetings:visible.reverse(),notice:mismatch+basis,provisional,official}
 }
