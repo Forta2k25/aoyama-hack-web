@@ -258,3 +258,41 @@ GitHubはcodex/web-ai-hackのみへ保存し、main・本番Web配信・PRは変
 別の一時的なsnapshot不一致は停止時snapshotが保存されておらず原因未確定だが、
 その後の4回の全保護設定照合は一致。以後の不一致snapshot保存を追加した。
 通信timeoutではmutationを再試行せず、operationの確認GETだけをretryして完了を確認した。
+
+## 授業と授業回ごとの会話分離
+
+時間割のidには##### / +++++ / *****などの仮codeが複数授業で再利用されていた。
+以前のWebはidをlocal UUIDのseedに優先し、別授業の保存先が重なる不具合があった。
+
+- canonical offeringは引き続きsyllabus YR優先のyear + 5桁firestoreDocID。
+- 未確定授業は、本人UID + 年度/学期/コマを含む時間割レコードから永続UUIDを割り当てる。
+  cells.dXpYとdXpYは同じレコードに正規化。code・授業名・教員名で統合しない。
+- チャット、資料のローカル所属、選択済み資料、AIへ送る直近turnsを
+  UID + courseKey + 授業日(dayID)で分離。APIのcontext.dayIDも選択した授業日に固定。
+- 授業回番号は表示用。休講設定を変えて番号がずれても、日付に紐づく会話を他の回へ動かさない。
+- 切替時には旧controller/stream/pollを停止し、遅延返信を次の授業・回に反映しない。
+- remote listの別offering・別lecture・所属未確定データは、自動で現在回へ採用しない。
+  local offeringの他端末データや不明なlecture IDも、推測で回に割り当てない。
+
+IndexedDBはversion 2へ非破壊upgrade。旧messages/materials/identitiesを削除しない。
+授業が混在した可能性のある旧履歴は「以前の履歴（授業回未確定）」にread-onlyで残す。
+旧資料の本文は明示操作で取得可能だが、新しい回のAIへ自動で渡さない。
+チャットと日程設定はこのブラウザで永続化する。端末間の会話同期は今回追加していない。
+
+授業回一覧は2026年度学部学事暦を設定値として使用し、曜日ごとの通常授業を数える。
+休祝日・休日授業実施日・冬期休業・キャンパス別休講/補講の差を扱う。
+出典: https://www.aoyama.ac.jp/wp-content/uploads/2025/10/aa_2026calendar_gakubu.pdf
+火曜後期の例は9/15 → 9/29 → 10/6 → 10/13（第4回）。
+大学院・集中講義・週複数回・独自補講の自動推測はしない。
+他年度/曜日未確定では初回授業日の明示設定を要求し、現在年や4/1で補完しない。
+「授業日程を調整」で初回日・campus・休講日を保存できる。
+シラバスの今週表示も、従来の4/1から15週固定ではなく曜日別学事暦へ変更。
+
+検証: 授業A/Bの仮code衝突、同授業の別日、資料・sourceIds・turns分離、
+遅延返信、戻る/再読込、旧DB upgrade・履歴保存、2026両キャンパス各曜日15回、
+火曜の添付例一致をテスト。Functions/Rules/IAM/Secret/allowlistは変更しない。
+
+最終確認: 35 tests PASS、通常build / ai-preview build / Web境界チェックPASS。
+実ブラウザでも火曜の第4回(10/13)から専用チャットが開くことを確認。
+パネル内クリックで要素を置換しても外側クリックと誤判定しないようcomposedPathを使用。
+今回は本番backend設定・deploy・データ移行は行っていない。

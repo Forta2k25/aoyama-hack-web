@@ -8,7 +8,7 @@ export async function renderDebug(){
   const host=root.querySelector<HTMLElement>('.ai-debug-chat')!,store=new AIStore(),uid='web-ai-debug-user'
   const context={localCourseId:'00000000-0000-4000-8000-000000000001',localCourseUUID:'00000000-0000-4000-8000-000000000001',classDocId:'00004',year:2026,dayID:20741,courseName:'科学的方法入門',teacherName:'架空教員',semester:'fall'}
   const old=await store.materials(uid,'2026:00004'),backend=new DemoAIBackend(old.flatMap(x=>x.remote?[{source:x.remote,text:x.text}]:[]))
-  const course=new CourseAI(host,{id:context.localCourseUUID,title:context.courseName,teacher:context.teacherName,room:'デバッグ教室',firestoreDocID:'00004',academicYear:2026,semester:'fall',syllabusURL:'https://syllabus.aoyama.ac.jp/shousai.ashx?YR=2026&FN=synthetic'},uid,backend,store)
+  const course=new CourseAI(host,{id:context.localCourseUUID,title:context.courseName,teacher:context.teacherName,room:'デバッグ教室',meetingDay:1,campus:'青山',firestoreDocID:'00004',academicYear:2026,semester:'fall',syllabusURL:'https://syllabus.aoyama.ac.jp/shousai.ashx?YR=2026&FN=synthetic'},uid,backend,store)
   root.querySelectorAll<HTMLButtonElement>('[data-debug-tab]').forEach(button=>button.addEventListener('click',()=>{const ai=button.dataset.debugTab==='ai';host.hidden=!ai;root.querySelector<HTMLElement>('.ai-debug-syllabus')!.hidden=ai;root.querySelectorAll<HTMLButtonElement>('[data-debug-tab]').forEach(x=>x.setAttribute('aria-selected',String(x===button)))}))
   await course.mount();window.addEventListener('pagehide',()=>course.dispose(),{once:true})
 }

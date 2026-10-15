@@ -25,3 +25,21 @@ export function makeContext(course: Course, localCourseUUID: string, date = new 
     courseName: course.title, teacherName: course.teacher,
     dayID: Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000) }
 }
+
+export const isCourseUUID=(id:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+export function identityRecord(course:Course):string {
+  // A timetable record is not a placeholder code or a title. It includes year, term and slot.
+  if(course.timetableRecord)return JSON.stringify(['timetable-record-v2',course.timetableRecord.replace(/:cells\.(d[0-5]p\d+)$/,':$1')])
+  if(isCourseUUID(course.id))return JSON.stringify(['course-uuid-v2',course.id])
+  const canonical=offeringId(makeContext(course,''))
+  if(canonical)return JSON.stringify(['offering-v2',canonical])
+  throw Error('WEB_授業を区別できる時間割レコードがありません。時間割から開き直してください。')
+}
+export const sessionKey=(context:CourseContext)=>JSON.stringify(['lecture-v2',courseKey(context),context.dayID])
+export const dayIDFor=(date:string)=>Math.floor(Date.parse(date+'T00:00:00Z')/86400000)
+export const dateForDayID=(id:number)=>new Date(id*86400000).toISOString().slice(0,10)
+
+export async function resolveContext(course:Course,store:{identity(uid:string,record:string):Promise<string>},uid:string):Promise<CourseContext>{
+ const uuid=await store.identity(uid,identityRecord(course))
+ return makeContext(course,uuid)
+}

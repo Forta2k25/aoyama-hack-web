@@ -31,3 +31,9 @@ test('mobile course uses the existing modal rather than the desktop aside',async
  const modal=document.getElementById('course-modal')!;assert.equal(modal.hidden,false);assert.equal(modal.querySelectorAll('[role=tab]').length,2)
  modal.querySelectorAll<HTMLButtonElement>('[role=tab]')[1].click();await flush();assert(modal.querySelector('.web-ai'));closeCourseModal();assert(modal.hidden);assert.equal(document.getElementById('course-modal-body')!.textContent,'')
 })
+
+test('switching a lecture may replace its clicked button without being mistaken for an outside click',async()=>{
+ Object.defineProperty(dom.window,'innerWidth',{value:1100,configurable:true});openCourseModal(c('replace'));resolves.get('replace')!({});await new Promise(r=>setTimeout(r,130))
+ const root=document.getElementById('course-side-body')!,button=document.createElement('button');button.textContent='第4回授業';root.append(button);button.addEventListener('click',()=>root.replaceChildren(document.createElement('p')));button.click()
+ assert(document.getElementById('course-side-panel')!.classList.contains('is-open'));closeCourseModal()
+})

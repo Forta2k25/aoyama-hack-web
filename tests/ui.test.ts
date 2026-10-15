@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { indexedDB } from 'fake-indexeddb'
-import { CourseAI } from '../src/components/CourseAI.ts'
+import { CourseChat as CourseAI } from '../src/components/CourseChat.ts'
 import { DemoAIBackend } from '../src/ai/demo.ts'
 import type { Evidence, ChatRequest } from '../src/ai/types.ts'
 const dom=new JSDOM('<!DOCTYPE html><div id="root"></div>',{url:'http://localhost/ai-debug'})

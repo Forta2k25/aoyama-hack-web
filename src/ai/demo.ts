@@ -1,3 +1,4 @@
+import {offeringId} from './identity'
 import type { AIBackend, ChatRequest, CourseContext, Evidence, Receipt, RemoteSource, SourceKind, Upload } from './types'
 const pause=(ms:number,signal:AbortSignal)=>new Promise<void>((resolve,reject)=>{signal.throwIfAborted();const done=()=>{signal.removeEventListener('abort',stop);resolve()},timer=setTimeout(done,ms),stop=()=>{clearTimeout(timer);reject(signal.reason)};signal.addEventListener('abort',stop,{once:true})})
 export class DemoAIBackend implements AIBackend {
@@ -5,7 +6,7 @@ export class DemoAIBackend implements AIBackend {
   private sources=new Map<string,{source:RemoteSource;start:number;text:string}>()
   constructor(initial:{source:RemoteSource;text?:string}[]=[]){for(const {source,text} of initial)this.sources.set(source.sourceId,{source,start:Date.now()-12000,text:text ?? 'デバッグ用に保存した架空の資料です。'})}
   async create(data:{type:SourceKind;title:string;context:CourseContext;text?:string}){
-    const source:RemoteSource={sourceId:crypto.randomUUID(),sourceType:data.type,title:data.title,status:'queued',courseOfferingId:`${data.context.year}:${data.context.classDocId}`,pipelineVersion:data.type==='image'?'image-auto-v1':data.type==='pdf'?'pdf-auto-v1':data.type==='audio'?'audio-groq-v2':'input-v1'}
+    const source:RemoteSource={sourceId:crypto.randomUUID(),sourceType:data.type,title:data.title,status:'queued',courseOfferingId:offeringId(data.context)??`local:${data.context.localCourseUUID}`,lectureId:String(data.context.dayID),pipelineVersion:data.type==='image'?'image-auto-v1':data.type==='pdf'?'pdf-auto-v1':data.type==='audio'?'audio-groq-v2':'input-v1'}
     this.sources.set(source.sourceId,{source,start:Date.now(),text:data.text ?? '架空の講義資料：観察から問いを立て、仮説を検証する。'})
     return source as Receipt
   }

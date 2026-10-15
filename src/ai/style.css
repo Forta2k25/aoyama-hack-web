@@ -82,3 +82,24 @@
 
 .ai-connection-check { margin:12px 0 20px;padding:12px;background:#f0f7f3;border:1px solid #e0ece5;border-radius:12px;font-size:12px }
 .ai-connection-check pre { white-space:pre-wrap;overflow-wrap:anywhere }
+
+.ai-course-title { margin:0 0 6px;font-size:19px;color:#1b5143 }
+.ai-session-intro { margin:0 0 12px;color:#5f8072;font-size:12px }
+.ai-session-note { font-size:10px;color:#7f9389;line-height:1.7 }
+.ai-calendar-link { color:#497d68 }
+.ai-lecture-list { display:grid;gap:12px;margin:18px 0 }
+.ai-lecture-card { display:flex;align-items:center;gap:12px;width:100%;padding:17px 13px;border:1px solid #e5eeea;border-radius:18px;background:white;box-shadow:0 5px 20px #21492f08;text-align:left;min-width:0 }
+.ai-lecture-card:hover,.ai-lecture-card--current { border-color:#a1cbb9;background:#f6fbf8 }
+.ai-lecture-number { display:grid;place-items:center;flex:none;width:42px;height:42px;border:1px solid #a7d0c1;border-radius:50%;background:#e2f1eb;color:#19775c;font-size:20px;font-weight:600 }
+.ai-lecture-body { min-width:0;flex:1;display:grid;gap:3px }
+.ai-lecture-body strong { font-size:14px;color:#203b30 }
+.ai-lecture-body small { font-size:10px;color:#91a297;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.ai-lecture-date { color:#899e91;font-size:11px;white-space:nowrap;display:grid;gap:2px;text-align:right }
+.ai-lecture-date small { color:#2d8067;font-size:9px }
+.ai-session-title { font-size:16px;color:#275d49;margin:15px 0 }
+.ai-schedule-settings,.ai-legacy-history { font-size:11px;margin:10px 0;border:1px solid #deebe4;border-radius:10px;padding:10px;color:#64816e }
+.ai-schedule-settings summary,.ai-legacy-history summary { cursor:pointer }
+.ai-schedule-settings label { display:block;margin:10px 0 }
+.ai-schedule-settings input,.ai-schedule-settings select,.ai-schedule-settings textarea { box-sizing:border-box;display:block;max-width:100%;width:100%;margin-top:5px;padding:7px;border:1px solid #cfdfd5;border-radius:7px;font:inherit;background:white;color:#365e4a }
+.ai-legacy-text { white-space:pre-wrap;overflow-wrap:anywhere;color:#758a7d }
+.ai-legacy-history { max-height:240px;overflow:auto }

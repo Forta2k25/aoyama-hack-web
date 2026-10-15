@@ -46,10 +46,10 @@ export interface AIBackend {
 export interface LocalMaterial {
   id: string; uid: string; courseKey: string; context: CourseContext; clientRequestId: string
   type: SourceKind; title: string; mime: string; size: number; text?: string; file?: Blob; durationSeconds?: number
-  remote?: RemoteSource; state: 'local' | 'uploading' | 'processing' | 'ready' | 'failed' | 'deleting'
+  sessionKey?: string; remote?: RemoteSource; state: 'local' | 'uploading' | 'processing' | 'ready' | 'failed' | 'deleting'
   error?: string; wantsDeletion?: boolean; createdAt: number
 }
 export interface Message {
   id: string; uid: string; courseKey: string; role: 'user' | 'assistant'; text: string
-  sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
+  sessionKey?: string; sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
 }

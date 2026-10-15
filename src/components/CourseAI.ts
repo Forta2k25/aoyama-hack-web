@@ -1,136 +1,67 @@
-import type { Course } from '../timetable'
-import { AIController } from '../ai/controller'
-import { AIStore } from '../ai/store'
-import { courseKey, makeContext, offeringId } from '../ai/identity'
-import { evidenceText, metadataText, safeError, statusLabel } from '../ai/format'
-import type { AIBackend, Evidence, LocalMaterial, Message } from '../ai/types'
-
-function el<K extends keyof HTMLElementTagNameMap>(tag:K,className='',text?:string){const node=document.createElement(tag);node.className=className;if(text!==undefined)node.textContent=text;return node}
-function button(label:string,action:()=>void,className='ai-small-button'){const b=el('button',className,label);b.type='button';b.addEventListener('click',action);return b}
-function abortableError(error:unknown){return error instanceof Error&&error.name==='AbortError'}
+import type {Course} from '../timetable'
+import type {AIBackend,CourseContext,Message,LocalMaterial} from '../ai/types'
+import {AIStore} from '../ai/store'
+import {courseKey,resolveContext,sessionKey,isCourseUUID,makeContext} from '../ai/identity'
+import {lectureSchedule,validDate,calendarSource,type LectureSettings,type LectureMeeting} from '../ai/calendar'
+import {safeError,evidenceText,metadataText} from '../ai/format'
+import {CourseChat} from './CourseChat'
+const node=<K extends keyof HTMLElementTagNameMap>(tag:K,cls='',text?:string)=>{const n=document.createElement(tag);n.className=cls;if(text!==undefined)n.textContent=text;return n}
+const dateLabel=(date:string)=>new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(date+'T00:00:00+09:00'))
 export class CourseAI {
-  private controller?:AIController;private disposed=false;private record?:MediaRecorder;private audio?:MediaStream;private recordTimer?:ReturnType<typeof setTimeout>
-  private thread=el('div','ai-thread');private materials=el('div','ai-materials');private notice=el('p','ai-notice');private status=el('p','ai-status');private textarea=el('textarea','ai-composer-input')
-  private send=el('button','ai-send','送信 ↑');private stop=el('button','ai-small-button','生成を中断');private composer=el('form','ai-composer');private recordButton=el('button','ai-menu-item','録音を開始')
-  private selectedEvidence?:string;private evidenceSignature='';private evidence=el('details','ai-evidence');private evidenceBody=el('div','ai-evidence-body');private evidenceTicket=0
-  private bubbles=new Map<string,HTMLElement>();private initError='';private hasAutoScrolled=false
-  private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore
-  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore()){this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
-  async mount(){
-    this.root.replaceChildren();this.root.classList.add('web-ai')
-    this.notice.textContent=this.backend.demo?'デバッグ専用・架空の応答です。Firebase／外部AIへは送信しません。':'本番接続 · forta-aogaku · 自分の資料のみ。利用には既存pilotの許可が必要です。'
-    this.root.append(this.notice)
-    const identity=el('p','ai-course-identity');identity.textContent='授業を確認しています…';this.root.append(identity)
-    const header=el('div','ai-materials-header');header.append(el('h3','','授業の資料'),el('span','','画像・PDF・音声・メモ'));this.root.append(header,this.materials)
-    const summary=el('summary','','読み取り本文・ページ別処理情報');this.evidence.append(summary,this.evidenceBody);this.evidence.hidden=true;this.root.append(this.evidence)
-    this.thread.setAttribute('role','log');this.thread.setAttribute('aria-label','AIとの会話');this.thread.setAttribute('aria-live','polite');this.thread.setAttribute('aria-relevant','additions');this.root.append(this.thread)
-    const welcome=el('div','ai-welcome');welcome.append(el('div','ai-mark','✦'),el('h3','','この授業の、学びの相棒。'),el('p','','資料を追加して、要約や質問から始めましょう。'),el('small','','授業ごとに会話と資料を保存します。'))
-    this.thread.append(welcome)
-    const suggestions=el('div','ai-suggestions')
-    for(const text of ['要点をまとめて','小テストを作って','リアクションペーパーを一緒に考えて'])suggestions.append(button(text,()=>{this.textarea.value=text;this.textarea.focus()},'ai-suggestion'))
-    this.root.append(suggestions)
-    this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=3;this.textarea.setAttribute('aria-label','AIへのメッセージ')
-    this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
-    const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
-    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,audio/mp4,.m4a';fileInput.hidden=true
-    menuBody.append(button('写真・PDF・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
-    this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
-    this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
-    tools.append(menu,this.stop,this.send);this.composer.append(this.textarea,tools,fileInput)
-    this.composer.addEventListener('submit',e=>{e.preventDefault();const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
-    fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);menu.open=false})
-    this.root.addEventListener('dragover',e=>{e.preventDefault();this.root.classList.add('ai-dragging')})
-    this.root.addEventListener('dragleave',()=>this.root.classList.remove('ai-dragging'))
-    this.root.addEventListener('drop',e=>{e.preventDefault();this.root.classList.remove('ai-dragging');void this.addFiles([...e.dataTransfer?.files??[]])})
-    const caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。');this.root.append(this.status,this.composer,caption)
-    try{
-      if(!this.course.id&&!this.course.timetableRecord)throw Error('WEB_授業の永続IDを取得できません。時間割から授業を選択し直してください。')
-      const uuid=/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(this.course.id)?this.course.id:await this.store.identity(this.uid,this.course.id||this.course.timetableRecord!)
-      if(this.disposed)return
-      const context=makeContext(this.course,uuid),canonical=offeringId(context)
-      identity.textContent=canonical?`${canonical} · ${context.semester==='fall'?'後期':context.semester==='spring'?'前期':'学期未確定'}`:context.year?`${context.year}年度・授業ID未確定（端末の授業IDで保持）`:'授業年度未確定（現在年では補完しません）'
-      identity.title=courseKey(context)
-      this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render());await this.controller.init();this.render()
-    }catch(e){this.initError=safeError(e);this.status.textContent=this.initError}
+ private disposed=false;private viewTicket=0;private chat?:CourseChat;private context?:CourseContext;private settings:LectureSettings={};private legacy:Message[]=[];private legacyMaterials:LocalMaterial[]=[];private lifetime=new AbortController()
+ private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore
+ constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore()){this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
+ async mount(){
+  this.root.replaceChildren(node('p','','授業ごとの履歴を確認しています…'));this.root.classList.add('web-ai')
+  try{
+   this.context=await resolveContext(this.course,this.store,this.uid)
+   this.settings=await this.store.settings(this.uid,courseKey(this.context))??{}
+   // Ambiguous pre-fix histories remain read-only. Never assign them to a new course/date.
+   const keys=new Set([courseKey(this.context)])
+   const old=isCourseUUID(this.course.id)?this.course.id:await this.store.lookupIdentity(this.uid,this.course.id||this.course.timetableRecord||'')
+   if(old)keys.add(courseKey(makeContext(this.course,old)))
+   for(const key of keys){this.legacy.push(...(await this.store.messages(this.uid,key)).filter(x=>!x.sessionKey));this.legacyMaterials.push(...(await this.store.materials(this.uid,key)).filter(x=>!x.sessionKey))}
+   await this.showList()
+  }catch(e){if(!this.disposed)this.root.replaceChildren(node('p','ai-status',safeError(e)))}
+ }
+ private async showList(){
+  const ticket=++this.viewTicket
+  this.chat?.dispose();this.chat=undefined
+  const context=this.context!,key=courseKey(context),[messages,materials]=await Promise.all([this.store.messages(this.uid,key),this.store.materials(this.uid,key)])
+  if(this.disposed||ticket!==this.viewTicket)return
+  const schedule=lectureSchedule(this.course,context,this.settings)
+  const title=node('h3','ai-course-title',this.course.title),intro=node('p','ai-session-intro','授業回ごとに資料とチャットを保存します。'),notice=node('p','ai-session-note',schedule.notice),list=node('div','ai-lecture-list')
+  if(schedule.official){const link=node('a','ai-calendar-link','学事暦を確認 ↗');link.href=calendarSource;link.target='_blank';link.rel='noopener noreferrer';notice.append(' ',link)}
+  for(const meeting of schedule.meetings){
+   const thread=sessionKey({...context,dayID:meeting.dayID}),history=messages.filter(x=>x.sessionKey===thread),sources=materials.filter(x=>x.sessionKey===thread)
+   const item=node('button','ai-lecture-card'),badge=node('span','ai-lecture-number',String(meeting.number)),body=node('span','ai-lecture-body'),label=node('strong','',`第${meeting.number}回授業`)
+   item.type='button';item.setAttribute('aria-label',`第${meeting.number}回授業 ${dateLabel(meeting.date)}`)
+   if(meeting.thisWeek)item.classList.add('ai-lecture-card--current')
+   body.append(label,node('small','',history.length?history.at(-1)!.text.slice(0,42):sources.length?`資料 ${sources.length}件`:'まだ記録がありません'))
+   const date=node('span','ai-lecture-date',dateLabel(meeting.date));if(meeting.thisWeek)date.append(node('small','','今週'+(meeting.upcoming?'・予定':'')))
+   item.append(badge,body,date);item.addEventListener('click',()=>void this.open(meeting));list.append(item)
   }
-  private async perform(action:()=>Promise<unknown>){try{await action()}catch(e){if(!this.disposed)this.status.textContent=safeError(e)}}
-  private async addFiles(files:File[]){
-    if(!this.controller||this.disposed)return
-    // Persist originals before any upload. Each item retains its own request ID and retry button.
-    for(const file of files.slice(0,8))await this.perform(()=>this.controller!.stageFile(file))
-    if(files.length>8)this.status.textContent='一度に追加できる資料は8件までです。'
-  }
-  private showNote(){
-    if(!this.controller)return
-    const menu=this.root.querySelector<HTMLDetailsElement>('.ai-add-menu');if(menu)menu.open=false
-    const dialog=el('dialog','ai-note-dialog'),form=el('form'),label=el('label','','資料メモ'),input=el('textarea');input.rows=8;input.maxLength=10000;input.required=true;input.setAttribute('aria-label','資料メモの本文');label.append(input)
-    const actions=el('div','ai-note-actions'),cancel=button('キャンセル',()=>dialog.close()),save=el('button','ai-send','資料として保存');save.type='submit';actions.append(cancel,save);form.append(label,actions)
-    form.addEventListener('submit',e=>{e.preventDefault();save.disabled=true;void this.perform(async()=>{await this.controller!.stageNote(input.value);dialog.close()}).finally(()=>{save.disabled=false})})
-    dialog.append(form);dialog.addEventListener('close',()=>dialog.remove(),{once:true});this.root.append(dialog);dialog.showModal();input.focus()
-  }
-  private async toggleRecording(){
-    if(this.record?.state==='recording'){this.record.stop();return}
-    try{
-      if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined'||!MediaRecorder.isTypeSupported('audio/mp4'))throw Error('WEB_このブラウザではm4a録音に対応していません。m4aファイルを追加してください。')
-      this.audio=await navigator.mediaDevices.getUserMedia({audio:true});if(this.disposed){this.audio.getTracks().forEach(x=>x.stop());return}
-      const chunks:Blob[]=[];this.record=new MediaRecorder(this.audio,{mimeType:'audio/mp4'})
-      this.record.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)}
-      this.record.onstop=()=>{clearTimeout(this.recordTimer);this.audio?.getTracks().forEach(x=>x.stop());this.recordButton.textContent='録音を開始';if(!this.disposed&&chunks.length)void this.addFiles([new File(chunks,`録音-${new Date().toISOString().slice(0,16).replace(':','-')}.m4a`,{type:'audio/mp4'})])}
-      this.record.onerror=()=>{this.audio?.getTracks().forEach(x=>x.stop());this.status.textContent='録音が中断されました。端末のマイク設定を確認してください。'}
-      this.record.start(1000);this.recordButton.textContent='■ 録音を終了して追加';this.status.textContent='録音中です（最長15分）。画面を閉じると録音を破棄します。';this.recordTimer=setTimeout(()=>this.record?.state==='recording'&&this.record.stop(),900000)
-    }catch(e){this.status.textContent=(e as DOMException)?.name==='NotAllowedError'?'マイクの使用が許可されていません。ファイルから音声を追加できます。':safeError(e)}
-  }
-  private render(){
-    const c=this.controller;if(!c||this.disposed)return
-    this.status.textContent=c.error||this.initError||(c.loading?'資料を確認しています…':c.sending?'AIが返信しています…':'')
-    this.send.disabled=c.loading||c.sending;this.stop.hidden=!c.sending;this.textarea.disabled=c.loading
-    this.materials.replaceChildren(...c.materials.map(row=>this.material(row)))
-    const existing=[...this.bubbles.keys()];for(const id of existing)if(!c.messages.some(x=>x.id===id)){this.bubbles.get(id)?.remove();this.bubbles.delete(id)}
-    this.thread.querySelector('.ai-welcome')?.toggleAttribute('hidden',c.messages.length>0)
-    const nearBottom=this.thread.scrollHeight-this.thread.scrollTop-this.thread.clientHeight<100
-    for(const message of c.messages)this.message(message)
-    if(nearBottom||!this.hasAutoScrolled){this.thread.scrollTop=this.thread.scrollHeight;this.hasAutoScrolled=true}
-    const selected=c.materials.find(x=>x.id===this.selectedEvidence)
-    const completed=selected?.remote?.previewProgress?.completed??0
-    const signature=selected?.remote?`${selected.id}:${selected.remote.status}:${selected.remote.activeVersion}:${selected.remote.previewVersion}:${completed}`:''
-    if(selected?.remote&&(['ready','partial_ready'].includes(selected.remote.status)||completed>0)&&signature!==this.evidenceSignature){this.evidenceSignature=signature;void this.loadEvidence(selected.id)}
-  }
-  private material(row:LocalMaterial){
-    const c=this.controller!,card=el('div','ai-material'),header=el('div','ai-material-row'),check=el('input');check.type='checkbox';check.checked=c.selected.has(row.id);check.disabled=row.state!=='ready';check.setAttribute('aria-label',`${row.title}を回答に参照する`)
-    check.addEventListener('change',()=>{if(check.checked&&c.selected.size>=8){check.checked=false;this.status.textContent='参照する資料は8件まで選択できます。';return}check.checked?c.selected.add(row.id):c.selected.delete(row.id)})
-    const title=el('span','ai-material-title',row.title),status=el('span','ai-material-status',statusLabel[row.state==='processing'?row.remote?.status??row.state:row.state]??row.state);header.append(check,title,status);card.append(header)
-    if(row.state==='uploading'){const p=el('progress');p.max=100;p.value=c.uploadProgress.get(row.id)??0;p.setAttribute('aria-label','アップロード進捗');card.append(p)}
-    if(row.error)card.append(el('p','ai-material-error',row.error))
-    const actions=el('div','ai-material-actions')
-    if(row.remote&&(row.state==='ready'||(row.remote.previewProgress?.completed??0)>0))actions.append(button(row.state==='ready'?'本文':'途中結果・検索対象外',()=>{this.selectedEvidence=row.id;this.evidenceSignature='';void this.loadEvidence(row.id)}))
-    if(row.state==='failed'||row.state==='local')actions.append(button('再送',()=>void this.perform(()=>c.retry(row.id))))
-    if(row.state==='ready')actions.append(button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);void this.perform(()=>c.send('','intro'))}))
-    actions.append(button('削除',()=>{if(confirm(`「${row.title}」を削除しますか？ AIに保存された本文と原本も削除します。`))void this.perform(()=>c.delete(row.id))}))
-    card.append(actions);return card
-  }
-  private message(message:Message){
-    let bubble=this.bubbles.get(message.id)
-    if(!bubble){bubble=el('article',`ai-message ai-message--${message.role}`);bubble.append(el('p','ai-message-role',message.role==='assistant'?'✦ AIハック':'あなた'),el('div','ai-message-text'),el('small','ai-message-state'));this.thread.append(bubble);this.bubbles.set(message.id,bubble)}
-    bubble.querySelector('.ai-message-text')!.textContent=message.text||(message.state==='sending'?'考えています…':'')
-    bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?'返信中…':message.state==='failed'?'送信に失敗しました。再送は自動で行いません。':message.state==='interrupted'?'中断した返信（未完了）':message.recognition?metadataText(message.recognition):''
-  }
-  private async loadEvidence(id:string){
-    const c=this.controller,row=c?.materials.find(x=>x.id===id);if(!c||!row?.remote)return
-    const ticket=++this.evidenceTicket,preview=!['ready','partial_ready'].includes(row.remote.status)
-    this.evidence.hidden=false;this.evidence.open=true;this.evidenceBody.replaceChildren(el('p','','本文を取得しています…'))
-    try{
-      const value=await c.evidence(id,preview);if(this.disposed||ticket!==this.evidenceTicket)return
-      // Never append probe/native text to an AI-selected page. Render canonical API chunks only.
-      this.renderEvidence(value,preview)
-    }catch(e){if(!this.disposed&&ticket===this.evidenceTicket&&!abortableError(e))this.evidenceBody.replaceChildren(el('p','',safeError(e)))}
-  }
-  private renderEvidence(value:Evidence,preview:boolean){
-    const body=el('div'),caption=el('p','ai-evidence-caption',preview?'途中結果・検索対象外':'解析完了・検索対象');body.append(caption,el('pre','ai-evidence-text',evidenceText(value.items)))
-    if(!preview)body.append(el('pre','ai-metadata',metadataText(value.recognition)))
-    body.append(el('p','ai-pipeline',value.pipelineVersion??'旧資料（保存済み本文）'))
-    for(const page of value.recognition?.routing?.pages??[])body.append(el('p','ai-page-route',`${page.pageNumber?`p.${page.pageNumber}`:'画像'} · ${page.route} · ${page.provider} / ${page.model??'対象外'}`))
-    if(value.latency){const labels:Record<string,string>={uploadMs:'送信',queueWaitMs:'待機',workerStartupMs:'起動',routerMs:'Router',nativeExtractionMs:'本文抽出',ocrProbeMs:'OCR probe',ocrMs:'OCR',aiMs:'AI',persistenceMs:'保存',evidenceMs:'本文取得',totalProcessingMs:'worker全体'};const lines=Object.entries(labels).map(([key,label])=>`${label}: ${typeof value.latency![key]==='number'?(Number(value.latency![key])/1000).toFixed(2)+'秒':'未計測'}`);body.append(el('pre','ai-metadata',lines.join('\n')))}
-    this.evidenceBody.replaceChildren(body)
-  }
-  dispose(){this.disposed=true;this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
+  this.root.replaceChildren(title,intro,notice,this.settingsForm(),list)
+  if(this.legacy.length||this.legacyMaterials.length){const archive=node('details','ai-legacy-history'),summary=node('summary','','以前の履歴（授業回未確定）');archive.append(summary,node('p','','以前の識別方法で保存された履歴です。別授業が混在する可能性があるため、新しいチャットには参照・引継ぎしません。'))
+   for(const row of this.legacyMaterials){const label=node('p','',row.title);archive.append(label);if(row.remote){const read=node('button','ai-small-button','旧資料の本文を見る'),body=node('pre','ai-legacy-text');read.type='button';read.addEventListener('click',()=>{read.disabled=true;body.textContent='本文を確認しています…';void this.backend.evidence(row.remote!.sourceId,false,this.lifetime.signal).then(value=>{if(!this.disposed)body.textContent=evidenceText(value.items)+'\n'+metadataText(value.recognition)}).catch(error=>{if(!this.disposed)body.textContent=safeError(error)}).finally(()=>{read.disabled=false})});archive.append(read,body)}}
+   for(const message of this.legacy){archive.append(node('p','ai-legacy-role',message.role==='user'?'あなた':'AI'),node('p','ai-legacy-text',message.text))}this.root.append(archive)}
+ }
+ private async open(meeting:LectureMeeting){
+  if(this.disposed)return
+  this.viewTicket++;this.chat?.dispose()
+  const back=node('button','ai-small-button','← 授業回一覧'),heading=node('h3','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
+  back.type='button';back.addEventListener('click',()=>void this.showList());this.root.replaceChildren(back,node('p','ai-session-course',this.course.title),heading,host)
+  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID});await this.chat.mount()
+ }
+ private settingsForm(){
+  const details=node('details','ai-schedule-settings'),summary=node('summary','','授業日程を調整'),form=node('form'),first=node('input'),campus=node('select'),skip=node('textarea'),status=node('p','ai-status')
+  first.type='date';first.value=this.settings.firstDate??'';first.setAttribute('aria-label','初回授業日')
+  for(const [value,label]of [['','未指定'],['aoyama','青山'],['sagamihara','相模原']]){const o=node('option','',label);o.value=value;campus.append(o)}campus.value=this.settings.campus??'';campus.setAttribute('aria-label','授業キャンパス')
+  skip.rows=2;skip.value=(this.settings.skippedDates??[]).join('\n');skip.placeholder='2026-10-20';skip.setAttribute('aria-label','休講日（1行に1日）')
+  for(const [text,input]of [['初回授業日（通常は自動）',first],['キャンパス',campus],['休講日（YYYY-MM-DD、1行に1日）',skip]] as const){const label=node('label','',text);label.append(input);form.append(label)}
+  const save=node('button','ai-small-button','日程を保存');save.type='submit';form.append(status,save)
+  form.addEventListener('submit',e=>{e.preventDefault();void(async()=>{const skipped=skip.value.split(/\s+/).filter(Boolean);if((first.value&&!validDate(first.value))||skipped.some(x=>!validDate(x))){status.textContent='有効な日付を入力してください。';return}save.disabled=true;try{this.settings={firstDate:first.value||undefined,campus:campus.value as LectureSettings['campus']||undefined,skippedDates:skipped};await this.store.putSettings(this.uid,courseKey(this.context!),this.settings);await this.showList()}catch(e){status.textContent=safeError(e)}finally{save.disabled=false}})()})
+  details.append(summary,node('p','','変更しても保存済みチャットの日付は変わりません。日程設定と会話は、このブラウザに保存されます。'),form);return details
+ }
+ dispose(){this.disposed=true;this.lifetime.abort();this.chat?.dispose()}
 }

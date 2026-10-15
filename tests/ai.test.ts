@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { indexedDB } from 'fake-indexeddb'
 import { AIStore } from '../src/ai/store.ts'
-import { syllabusYear,makeContext,courseKey,offeringId } from '../src/ai/identity.ts'
+import { syllabusYear,makeContext,courseKey,offeringId,sessionKey } from '../src/ai/identity.ts'
 import { evidenceText,fileKind,metadataText,safeError } from '../src/ai/format.ts'
 import { AIController,persistentSource } from '../src/ai/controller.ts'
 import { validateUpload } from '../src/ai/upload.ts'
@@ -105,7 +105,7 @@ test('failure diagnostics expose only bounded error codes, never URLs or arbitra
 
 test('resuming a durable m4a keeps its measured duration and sends integer seconds with the same request ID',async()=>{
  const store=new AIStore(),backend=new Backend(),uid=crypto.randomUUID(),id=crypto.randomUUID(),requestId=crypto.randomUUID()
- await store.putMaterial({id,uid,courseKey:courseKey(context),context,clientRequestId:requestId,type:'audio',title:'synthetic.m4a',mime:'audio/mp4',size:3,file:new Blob(['aac']),durationSeconds:8.04,state:'failed',createdAt:Date.now()})
+ await store.putMaterial({id,uid,courseKey:courseKey(context),sessionKey:sessionKey(context),context,clientRequestId:requestId,type:'audio',title:'synthetic.m4a',mime:'audio/mp4',size:3,file:new Blob(['aac']),durationSeconds:8.04,state:'failed',createdAt:Date.now()})
  const c=new AIController(uid,context,backend,store,()=>{});await c.init();await c.retry(id)
  assert.equal(backend.createInputs[0].durationSeconds,9);assert.equal(backend.createInputs[0].clientRequestId,requestId);assert.equal(backend.createInputs[0].type,'audio');assert.equal(backend.createInputs[0].mime,'audio/mp4')
  assert.equal((await store.materials(uid,courseKey(context)))[0].durationSeconds,8.04);c.dispose()

@@ -1,3 +1,5 @@
+import {lectureSchedule} from '../ai/calendar'
+import {makeContext} from '../ai/identity'
 import { webAIEnabled } from '../ai/access'
 import { CourseAI } from './CourseAI'
 import { type AuthUser } from '../auth'
@@ -311,14 +313,6 @@ function booksMarkup(label: string, books: SyllabusContent['textbooks']): string
   </div>`
 }
 
-function currentWeekNumber(): number {
-  // 4/1 を前期第1週の起点として計算
-  const now = new Date()
-  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
-  const semesterStart = new Date(year, 3, 1)
-  const diff = Math.floor((now.getTime() - semesterStart.getTime()) / (7 * 24 * 60 * 60 * 1000))
-  return Math.max(1, Math.min(15, diff + 1))
-}
 
 function courseDetailBodyMarkup(
   course: import('../timetable').Course,
@@ -349,7 +343,7 @@ function courseDetailBodyMarkup(
     `
   }
 
-  const week = currentWeekNumber()
+  const week=lectureSchedule({...course,teachingTerm:detail?.term},makeContext(course,'')).meetings.find(x=>x.thisWeek)?.number??0
   return `
     <h2 class="course-modal-title">${course.title}</h2>
     ${syllabusLink}
@@ -398,7 +392,7 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
         if(!user){aiHost.textContent='AIハックを使うには、マイページからログインしてください。';return}
         const {FirebaseAIBackend}=await import('../ai/backend')
         if(ticket!==_courseRequest)return
-        const resolved={...course,syllabusURL:course.syllabusURL||resolvedDetail?.syllabusURL,semester:course.semester ?? (resolvedDetail?.term?.includes('前期')?'spring':resolvedDetail?.term?.includes('後期')?'fall':undefined)}
+        const resolved={...course,teachingTerm:resolvedDetail?.term,syllabusURL:course.syllabusURL||resolvedDetail?.syllabusURL,semester:course.semester ?? (resolvedDetail?.term?.includes('前期')?'spring':resolvedDetail?.term?.includes('後期')?'fall':undefined)}
         _activeAI=new CourseAI(aiHost,resolved,user.uid,new FirebaseAIBackend(user.uid));await _activeAI.mount()
       })().catch(()=>{if(ticket===_courseRequest&&aiHost)aiHost.textContent='AIハックの準備に失敗しました。授業を開き直してください。'})
     }
@@ -417,7 +411,7 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
     panel.classList.add('is-open')
     const layout=document.getElementById('mypage-layout');if(layout)window.scrollTo({top:Math.max(0,layout.getBoundingClientRect().top+window.scrollY-96),behavior:'smooth'})
     // Keep the panel open while using the timetable, its scroll bars, a picker or an AI dialog.
-    _outsideClickHandler=(event:MouseEvent)=>{const target=event.target as Element|null;if(!target?.closest('#course-side-panel,.tt-cell-filled,dialog'))closeCourseModal()}
+    _outsideClickHandler=(event:MouseEvent)=>{const inside=event.composedPath().some(node=>node instanceof HTMLElement&&node.matches('#course-side-panel,.tt-cell-filled,dialog'));if(!inside)closeCourseModal()}
     _outsideTimer=setTimeout(()=>{if(ticket===_courseRequest&&_outsideClickHandler)document.addEventListener('click',_outsideClickHandler)},100)
   }else{
     panel.hidden=false;document.body.classList.add('modal-open');panel.querySelector<HTMLElement>('.course-modal-close')?.focus({preventScroll:true})

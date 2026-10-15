@@ -36,6 +36,8 @@ export interface Course {
   firestoreDocID?: string
   academicYear?: number
   semester?: string
+  meetingDay?: number
+  teachingTerm?: string
   timetableRecord?: string
 }
 
@@ -93,6 +95,7 @@ export async function fetchTimetable(uid: string): Promise<TimetableSlot[]> {
         firestoreDocID: m['firestoreDocID'] as string | undefined,
         academicYear: Number(docId.match(/^assignedCourses\.(\d{4})_/)?.[1]) || undefined,
         semester: docId.endsWith('_前期') ? 'spring' : 'fall',
+        meetingDay: parseInt(match[1],10),
         timetableRecord: `${docId}:${key}`,
       },
     })
