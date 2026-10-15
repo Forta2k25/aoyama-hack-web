@@ -134,3 +134,28 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
  .ai-chat-screen .ai-message-text { font-size:14px }
  .ai-chat-screen .ai-notice { font-size:10px }
 }
+
+/* Materials are available on demand, outside the conversation flow. */
+.ai-chat-screen-titles { flex:1 }
+.ai-chat-screen-actions { margin-left:auto;flex:none }
+.ai-materials-toolbar { display:flex;justify-content:flex-end;margin-bottom:10px }
+.ai-materials-toggle { border:1px solid #bcd7ca;border-radius:12px;background:#edf6f0;color:#246c54;font:inherit;font-size:13px;font-weight:600;padding:10px 14px;cursor:pointer;white-space:nowrap }
+.ai-materials-toggle:hover { background:#e1efe7 }
+.ai-materials-toggle:focus-visible { outline:3px solid #4a997e;outline-offset:3px }
+.ai-materials-dialog { position:fixed;inset:0 0 0 auto;box-sizing:border-box;width:min(480px,100vw);height:100vh;height:100dvh;max-height:none;max-width:100%;margin:0;border:0;border-left:1px solid #dfe9e3;padding:0;background:#fff;color:#1b3430;box-shadow:-8px 0 40px #17332618 }
+.ai-materials-dialog[open] { display:flex;flex-direction:column }
+.ai-materials-dialog::backdrop { background:#19342a44 }
+.ai-materials-panel-header { flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:20px;border-bottom:1px solid #e0ebe4 }
+.ai-materials-panel-header h3 { margin:0;font-size:16px }
+.ai-materials-panel-header .ai-small-button { padding:7px 12px }
+.ai-materials-panel-content { min-height:0;overflow:auto;padding:16px 20px max(20px,env(safe-area-inset-bottom)) }
+.ai-materials-help,.ai-materials-empty { font-size:12px;color:#758d80;margin:0 0 16px }
+.ai-materials-dialog .ai-materials { max-height:none;overflow:visible;margin-bottom:12px }
+.ai-materials-dialog .ai-material-title { white-space:normal;overflow-wrap:anywhere }
+.ai-materials-dialog .ai-evidence-body { max-height:none;overflow:visible }
+@media(max-width:799px){
+ .ai-chat-screen-header { gap:8px }
+ .ai-materials-toggle { padding:9px 10px;font-size:12px }
+ .ai-chat-screen-header .ai-small-button { padding:9px 8px;font-size:10px!important }
+ .ai-materials-panel-header { padding-top:max(16px,env(safe-area-inset-top)) }
+}

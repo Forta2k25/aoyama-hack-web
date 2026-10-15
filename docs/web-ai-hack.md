@@ -330,3 +330,14 @@ USDの保存値、provider料金計算、usage、音声の時間課金には変�
 参照: https://www.investing.com/currencies/usd-jpy-historical-data
 画面には推定、換算レート、参考日、実請求額との差を明記する。
 1円未満は小数4桁まで表示し、極小の正額を0円と断定しない。未取得・不正値は未取得のまま。
+
+### 右上の資料一覧
+
+チャット上部に資料一覧・本文を常設せず、header右端の「資料 (件数)」から
+右側のmodal drawerを開く。スマートフォン幅では画面幅に合わせる。
+資料の参照checkbox、状態/進捗、本文・途中結果、再送、削除はdrawer内に維持する。
+「この資料について聞く」ではdrawerを閉じて会話へ戻す。閉じる/Escで資料buttonにfocusを戻す。
+閉じても選択状態や会話は初期化せず、授業/授業日/UID単位の既存保存範囲を維持。
+資料が0件なら空状態を表示し、処理中件数はbuttonのtooltipで確認できる。
+本番API・Firebase・アプリの変更やdeployは行わない。
+検証: 43 tests、通常/preview build、境界/秘密情報scan、PC・390px幅の実ブラウザ。

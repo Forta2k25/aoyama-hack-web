@@ -13,16 +13,24 @@ export class CourseChat {
   private thread=el('div','ai-thread');private materials=el('div','ai-materials');private notice=el('p','ai-notice');private status=el('p','ai-status');private textarea=el('textarea','ai-composer-input')
   private send=el('button','ai-send','送信 ↑');private stop=el('button','ai-small-button','生成を中断');private composer=el('form','ai-composer');private recordButton=el('button','ai-menu-item','録音を開始')
   private selectedEvidence?:string;private evidenceSignature='';private evidence=el('details','ai-evidence');private evidenceBody=el('div','ai-evidence-body');private evidenceTicket=0
+  private materialsPanel=el('dialog','ai-materials-dialog');private materialsButton=button('資料 (0)',()=>this.openMaterials(),'ai-materials-toggle');private materialsEmpty=el('p','ai-materials-empty','この授業回には、まだ資料がありません。');private toolbar?:HTMLElement
   private bubbles=new Map<string,HTMLElement>();private initError='';private hasAutoScrolled=false
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
-  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext){this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
+  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement){this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
     this.root.replaceChildren();this.root.classList.add('web-ai')
     this.notice.textContent=this.backend.demo?'デバッグ専用・架空の応答です。Firebase／外部AIへは送信しません。':'本番接続 · forta-aogaku · 自分の資料のみ。利用には既存pilotの許可が必要です。'
     this.root.append(this.notice)
     const identity=el('p','ai-course-identity');identity.textContent='授業を確認しています…';this.root.append(identity)
-    const header=el('div','ai-materials-header');header.append(el('h3','','授業の資料'),el('span','','画像・PDF・音声・メモ'));this.root.append(header,this.materials)
-    const summary=el('summary','','読み取り本文・ページ別処理情報');this.evidence.append(summary,this.evidenceBody);this.evidence.hidden=true;this.root.append(this.evidence)
+    const header=el('header','ai-materials-panel-header'),title=el('h3','','この授業回の資料'),close=button('閉じる',()=>this.materialsPanel.close())
+    title.id=`ai-materials-title-${crypto.randomUUID()}`;header.append(title,close)
+    this.materialsPanel.id=`ai-materials-${crypto.randomUUID()}`;this.materialsPanel.setAttribute('aria-labelledby',title.id)
+    this.materialsButton.setAttribute('aria-controls',this.materialsPanel.id);this.materialsButton.setAttribute('aria-haspopup','dialog');this.materialsButton.setAttribute('aria-expanded','false')
+    this.materialsPanel.addEventListener('close',()=>{this.materialsButton.setAttribute('aria-expanded','false');if(!this.disposed)this.materialsButton.focus()})
+    const content=el('div','ai-materials-panel-content');content.append(el('p','ai-materials-help','回答に使う資料にチェックを入れてください。解析が完了した資料だけを参照します。'),this.materialsEmpty,this.materials)
+    const summary=el('summary','','読み取り本文・ページ別処理情報');this.evidence.append(summary,this.evidenceBody);this.evidence.hidden=true;content.append(this.evidence);this.materialsPanel.append(header,content);this.root.append(this.materialsPanel)
+    if(this.toolbar)this.toolbar.append(this.materialsButton)
+    else {const tools=el('div','ai-materials-toolbar');tools.append(this.materialsButton);this.root.prepend(tools)}
     this.thread.setAttribute('role','log');this.thread.setAttribute('aria-label','AIとの会話');this.thread.setAttribute('aria-live','polite');this.thread.setAttribute('aria-relevant','additions');this.root.append(this.thread)
     const welcome=el('div','ai-welcome');welcome.append(el('div','ai-mark','✦'),el('h3','','この授業の、学びの相棒。'),el('p','','資料を追加して、要約や質問から始めましょう。'),el('small','','授業ごとに会話と資料を保存します。'))
     this.thread.append(welcome)
@@ -51,6 +59,7 @@ export class CourseChat {
       this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render());await this.controller.init();this.render()
     }catch(e){this.initError=safeError(e);this.status.textContent=this.initError}
   }
+  private openMaterials(){if(this.disposed||this.materialsPanel.open)return;this.materialsButton.setAttribute('aria-expanded','true');this.materialsPanel.showModal()}
   private async perform(action:()=>Promise<unknown>){try{await action()}catch(e){if(!this.disposed)this.status.textContent=safeError(e)}}
   private async addFiles(files:File[]){
     if(!this.controller||this.disposed)return
@@ -83,6 +92,10 @@ export class CourseChat {
     this.status.textContent=c.error||this.initError||(c.loading?'資料を確認しています…':c.sending?'AIが返信しています…':'')
     this.send.disabled=c.loading||c.sending;this.stop.hidden=!c.sending;this.textarea.disabled=c.loading
     this.materials.replaceChildren(...c.materials.map(row=>this.material(row)))
+    this.materialsButton.textContent=`資料 (${c.materials.length})`;this.materialsEmpty.hidden=c.materials.length>0
+    const pending=c.materials.filter(row=>['local','uploading','processing'].includes(row.state)).length
+    this.materialsButton.title=pending?`${pending}件の資料を処理中です`:'この授業回の資料一覧を開く'
+    if(this.selectedEvidence&&!c.materials.some(row=>row.id===this.selectedEvidence)){this.selectedEvidence=undefined;this.evidenceSignature='';this.evidenceTicket++;this.evidence.hidden=true;this.evidenceBody.replaceChildren()}
     const existing=[...this.bubbles.keys()];for(const id of existing)if(!c.messages.some(x=>x.id===id)){this.bubbles.get(id)?.remove();this.bubbles.delete(id)}
     this.thread.querySelector('.ai-welcome')?.toggleAttribute('hidden',c.messages.length>0)
     const nearBottom=this.thread.scrollHeight-this.thread.scrollTop-this.thread.clientHeight<100
@@ -102,7 +115,7 @@ export class CourseChat {
     const actions=el('div','ai-material-actions')
     if(row.remote&&(row.state==='ready'||(row.remote.previewProgress?.completed??0)>0))actions.append(button(row.state==='ready'?'本文':'途中結果・検索対象外',()=>{this.selectedEvidence=row.id;this.evidenceSignature='';void this.loadEvidence(row.id)}))
     if(row.state==='failed'||row.state==='local')actions.append(button('再送',()=>void this.perform(()=>c.retry(row.id))))
-    if(row.state==='ready')actions.append(button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);void this.perform(()=>c.send('','intro'))}))
+    if(row.state==='ready')actions.append(button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.textarea.focus();void this.perform(()=>c.send('','intro'))}))
     actions.append(button('削除',()=>{if(confirm(`「${row.title}」を削除しますか？ AIに保存された本文と原本も削除します。`))void this.perform(()=>c.delete(row.id))}))
     card.append(actions);return card
   }
@@ -130,5 +143,5 @@ export class CourseChat {
     if(value.latency){const labels:Record<string,string>={uploadMs:'送信',queueWaitMs:'待機',workerStartupMs:'起動',routerMs:'Router',nativeExtractionMs:'本文抽出',ocrProbeMs:'OCR probe',ocrMs:'OCR',aiMs:'AI',persistenceMs:'保存',evidenceMs:'本文取得',totalProcessingMs:'worker全体'};const lines=Object.entries(labels).map(([key,label])=>`${label}: ${typeof value.latency![key]==='number'?(Number(value.latency![key])/1000).toFixed(2)+'秒':'未計測'}`);body.append(el('pre','ai-metadata',lines.join('\n')))}
     this.evidenceBody.replaceChildren(body)
   }
-  dispose(){this.disposed=true;this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
+  dispose(){this.disposed=true;if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
 }

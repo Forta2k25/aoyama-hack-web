@@ -54,13 +54,13 @@ export class CourseAI {
  private async open(meeting:LectureMeeting){
   if(this.disposed)return
   this.viewTicket++;this.chat?.dispose();this.closeScreen();this.returnFocusDay=meeting.dayID
-  const screen=node('dialog','ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles')
+  const screen=node('dialog','ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles'),actions=node('div','ai-chat-screen-actions')
   const back=node('button','ai-small-button','← 授業回一覧'),heading=node('h3','ai-session-course',this.course.title),date=node('p','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
   heading.id=`ai-chat-title-${crypto.randomUUID()}`;screen.setAttribute('aria-labelledby',heading.id);screen.setAttribute('aria-modal','true')
-  back.type='button';back.addEventListener('click',()=>void this.showList());titles.append(heading,date);header.append(back,titles);screen.append(header,host)
+  back.type='button';back.addEventListener('click',()=>void this.showList());titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
   this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(this.screen===screen&&!this.disposed)void this.showList()})
   document.body.classList.add('ai-chat-open');screen.showModal()
-  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID});await this.chat.mount()
+  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions);await this.chat.mount()
  }
  private settingsForm(){
   const details=node('details','ai-schedule-settings'),summary=node('summary','','授業日程を調整'),form=node('form'),first=node('input'),campus=node('select'),skip=node('textarea'),status=node('p','ai-status')

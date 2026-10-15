@@ -2,10 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JSDOM } from 'jsdom'
 import { indexedDB } from 'fake-indexeddb'
+import { makeContext } from '../src/ai/identity.ts'
+import { AIStore } from '../src/ai/store.ts'
 import { CourseChat as CourseAI } from '../src/components/CourseChat.ts'
 import { DemoAIBackend } from '../src/ai/demo.ts'
 import type { Evidence, ChatRequest } from '../src/ai/types.ts'
 const dom=new JSDOM('<!DOCTYPE html><div id="root"></div>',{url:'http://localhost/ai-debug'})
+dom.window.HTMLDialogElement.prototype.showModal=function(){this.open=true}
+dom.window.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new dom.window.Event('close'))}
 Object.assign(globalThis,{window:dom.window,document:dom.window.document,HTMLElement:dom.window.HTMLElement,indexedDB})
 const course={id:'00000000-0000-4000-8000-000000000002',title:'架空の授業',teacher:'架空教員',room:'',firestoreDocID:'00004',academicYear:2026}
 class Backend extends DemoAIBackend {
@@ -24,4 +28,21 @@ test('preview is visibly outside search; canonical final text replaces preview w
   ;(view as any).renderEvidence(preview,true);assert.match(root.textContent!,/途中結果・検索対象外/)
   ;(view as any).renderEvidence({...preview,status:'ready',preview:false,items:[{...preview.items[0],text:'Observation → Question',method:'multimodal_ai'}],recognition:{provider:'groq',model:'qwen/qwen3.8-27b'}},false)
   assert(root.textContent!.includes('Observation → Question'));assert(!root.textContent!.includes('途中の本文'));assert(root.textContent!.includes('qwen/qwen3.8-27b'));view.dispose()
+})
+
+test('header materials button opens an isolated drawer, keeps selection and evidence there, and cleans up on dispose',async()=>{
+  const root=document.getElementById('root')!,toolbar=document.createElement('div');document.body.append(toolbar)
+  const context=makeContext(course,crypto.randomUUID()),source={sourceId:crypto.randomUUID(),sourceType:'note' as const,title:'保存した架空メモ',status:'ready' as const,courseOfferingId:'2026:00004',lectureId:String(context.dayID)}
+  const view=new CourseAI(root,course,crypto.randomUUID(),new DemoAIBackend([{source,text:'資料の本文確認'}]),new AIStore(),context,toolbar)
+  await view.mount()
+  const toggle=toolbar.querySelector<HTMLButtonElement>('button')!,panel=root.querySelector<HTMLDialogElement>('.ai-materials-dialog')!
+  assert.equal(toggle.textContent,'資料 (1)');assert.equal(toggle.getAttribute('aria-expanded'),'false');assert(!panel.open)
+  assert.equal(root.querySelector('.ai-materials')!.parentElement!.closest('dialog'),panel);assert.equal(root.querySelector('.ai-evidence')!.closest('dialog'),panel)
+  toggle.click();assert(panel.open);assert.equal(toggle.getAttribute('aria-expanded'),'true')
+  const check=panel.querySelector<HTMLInputElement>('input[type=checkbox]')!;assert(check.checked);check.checked=false;check.dispatchEvent(new dom.window.Event('change'))
+  panel.close();assert.equal(toggle.getAttribute('aria-expanded'),'false');toggle.click();assert(!panel.querySelector<HTMLInputElement>('input[type=checkbox]')!.checked)
+  ;[...panel.querySelectorAll<HTMLButtonElement>('button')].find(x=>x.textContent==='本文')!.click()
+  for(let i=0;i<100&&!panel.textContent!.includes('資料の本文確認');i++)await new Promise(r=>setTimeout(r,3))
+  assert(panel.textContent!.includes('資料の本文確認'));assert(!root.querySelector('.ai-thread')!.textContent!.includes('資料の本文確認'))
+  view.dispose();assert(!panel.isConnected);assert(!toolbar.children.length);toolbar.remove()
 })
