@@ -79,3 +79,6 @@
 
 .ai-debug-header { flex-wrap:wrap;gap:12px }
 .ai-live-link { margin-left:auto;border:1px solid #33836d;border-radius:20px;padding:8px 16px;font-size:13px }
+
+.ai-connection-check { margin:12px 0 20px;padding:12px;background:#f0f7f3;border:1px solid #e0ece5;border-radius:12px;font-size:12px }
+.ai-connection-check pre { white-space:pre-wrap;overflow-wrap:anywhere }

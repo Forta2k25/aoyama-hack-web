@@ -654,6 +654,7 @@ export async function renderMyPage(user: AuthUser) {
       })
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape'&&!document.querySelector('dialog[open]')) closeCourseModal() })
     }
+    if(webAIEnabled())void import('../ai/connection').then(({mountConnectionCheck})=>{if(pageRequest===_pageRequest)void mountConnectionCheck(container,user.uid)})
     // 現在時刻ライン（時間割タブのみ）
     startNowLine()
 

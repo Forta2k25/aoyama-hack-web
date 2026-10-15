@@ -181,3 +181,33 @@ UIデバッグでは資料メモ、画像、PDF、音声ファイル、チャッ
 
 本番Webサイトaoyamahack.comは変更しない。ここで「本番接続」はfeature branchの
 ローカルWebが既存本番Firebaseへ接続する意味であり、Webの一般公開を意味しない。
+
+## 本人アカウントの接続診断（内部previewのみ）
+
+マイページの「本番接続を確認（読み取りのみ）」から、project、マスク済みFirebase UID、
+Auth providerと本人の時間割document数・flat/cells mapの件数だけを確認できる。
+本人UIDの全体表示は「本人UIDを確認」を明示的に押した場合のみ。初期表示・ログ・
+Git・localStorageへUID実値やtokenを出力しない。Googleの同じメールアドレスだという
+説明だけで、他Firebase UIDの時間割を代読・コピーしたり、pilot認可を迂回したりしない。
+
+診断は既存Web Firebaseクライアントによる本人の(default) DBのreadだけ。
+アカウント連携・許可リスト・Firestore/Storage Rulesの変更機能は持たない。
+本番サイトのfeature gateがOFFなら、診断パネルも表示しない。
+
+## Web pilot追加の途中状態
+
+本人の明示承認後、既存2 UIDを残して本人のWeb UID 1件を追加するenv-only更新を実施。
+更新済みはaiProcessSource / aiGetSource / aiListSources / aiGetEvidence / aiRetrieveContext /
+aiRetrySource / aiUpdateSource / aiDeleteSource / aiCreateSource / aiCompleteSourceの10件。
+それぞれsource archive checksum・runtime・SA・IAM・UID以外のenvを照合。
+
+最後のaiChatは、作業中に別のsource更新（revision 00002から00003）を検出したため未変更。
+最新sourceを維持したenv-only追記の確認待ち。更新済み10件を再PATCHしない。
+この時点ではAI返信・4入力E2Eは完了していない。UID実値・非公開config・operation記録は
+Git除外のbuild/配下だけに保持する。queueはRUNNING、SchedulerはPAUSED、sharing=false。
+
+読取auditでは、FirestoreのearliestVersionTimeとetagが書込なしでも変化することを確認。
+比較guardはこの2項目だけ除外し、updateTimeを含むその他の全設定を検証する。
+別の一時的なsnapshot不一致は停止時snapshotが保存されておらず原因未確定だが、
+その後の4回の全保護設定照合は一致。以後の不一致snapshot保存を追加した。
+通信timeoutではmutationを再試行せず、operationの確認GETだけをretryして完了を確認した。
