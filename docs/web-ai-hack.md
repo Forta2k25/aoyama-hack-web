@@ -320,3 +320,13 @@ Dialogはbody直下へ配置し、モバイルで非表示になるdesktop sideb
 レイアウト制約を受けない。表示中は背景scrollを止め、終了・dispose時に解除する。
 授業/授業日/UIDの保存key、Callable契約、Firebase設定は変更しない。
 39 tests PASS、PC幅と390px幅の実ブラウザで全画面・入力欄・戻る/Escを確認。
+
+### 推定コストの円表示
+
+チャット返信・資料の処理情報は、backendのestimatedCostUSDを共通formatterで円に換算して表示。
+USDの保存値、provider料金計算、usage、音声の時間課金には変更を加えない。
+表示用の参考USD/JPYレートはsrc/ai/cost.tsのcostDisplayに分離し、
+2026-10-15の1 USD = 157.76円を使用（自動更新・実請求レートではない）。
+参照: https://www.investing.com/currencies/usd-jpy-historical-data
+画面には推定、換算レート、参考日、実請求額との差を明記する。
+1円未満は小数4桁まで表示し、極小の正額を0円と断定しない。未取得・不正値は未取得のまま。

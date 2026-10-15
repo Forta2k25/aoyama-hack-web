@@ -1,4 +1,5 @@
 import type { EvidenceChunk, Recognition, SourceKind } from './types'
+import { estimatedCostText } from './cost'
 export function evidenceText(chunks: EvidenceChunk[]): string {
   let result = '', key = '', end: number | undefined
   for (const c of [...chunks].sort((a,b) => a.chunkId.localeCompare(b.chunkId))) {
@@ -20,7 +21,7 @@ export function metadataText(r?: Recognition | null): string {
   const rows = [r.provider, r.model].filter(Boolean).join(' / ')
   const tokens = r.method === 'groq_asr' ? '音声認識はtoken課金ではないため対象外' :
     r.totalTokens != null ? `入力 ${r.inputTokens != null ? r.inputTokens.toLocaleString() : '未取得'} / 出力 ${r.outputTokens != null ? r.outputTokens.toLocaleString() : '未取得'} / 合計 ${r.totalTokens.toLocaleString()} tokens` : 'usage未取得'
-  const price = r.estimatedCostUSD != null ? `推定 $${r.estimatedCostUSD.toFixed(6)}（実際の請求額とは異なります）` : '推定コスト未取得'
+  const price = estimatedCostText(r.estimatedCostUSD)
   return [rows, r.audioDurationSeconds!=null?`音声 ${r.audioDurationSeconds.toFixed(1)} 秒`:'', r.processingMs!=null?`処理 ${(r.processingMs/1000).toFixed(2)} 秒`:'', tokens, price, r.pricingAsOf?`料金基準: ${r.pricingAsOf}`:''].filter(Boolean).join('\n')
 }
 export const statusLabel: Record<string,string> = { local:'未送信', uploading:'送信中', awaiting_upload:'送信待ち', queued:'解析待ち', extracting:'解析中', indexing:'保存中', processing:'解析中', ready:'完了', partial_ready:'部分完了', failed:'再試行できます', deleting:'削除中', deleted:'削除済み' }
