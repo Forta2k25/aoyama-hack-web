@@ -341,3 +341,22 @@ USDの保存値、provider料金計算、usage、音声の時間課金には変�
 資料が0件なら空状態を表示し、処理中件数はbuttonのtooltipで確認できる。
 本番API・Firebase・アプリの変更やdeployは行わない。
 検証: 43 tests、通常/preview build、境界/秘密情報scan、PC・390px幅の実ブラウザ。
+
+### 保護付きWeb previewの共有準備
+
+このbranchのVercel buildCommandはbuild:ai-preview。Git自動deployは引き続き無効で、
+手動のCreate Preview Deploymentでのみ反映する。本番環境ではViteの
+VERCEL_ENV=production guardによりAIを無効化し、本番hostの拒否も維持。
+Vercelの既存Standard Protectionを確認してからPreviewを作成する。
+X-Robots-Tag: noindex, nofollow, noarchiveは検索除外の補助でありアクセス制御ではない。
+
+保護されたPreviewのShareable Linkだけを相手に渡す。リンクを転送された人も入場できる。
+リンク値はcredential同様にGitへ保存せず、通常URLだけでは保護されることを別セッションで確認する。
+共有停止は当該deploymentのShareからOnly people with accessへ戻す。
+
+Firebase Googleログインにはexact preview hostnameのAuthorized domains設定、
+画像/PDF/音声のsigned PUTにはexact HTTPS originのbucket CORS設定が必要。
+この2点は実URL確定後に既存設定を保持して差分を確認し、承認を得て追加する。
+pilot allowlistは自動追加しない。URLの入場許可とAI利用認可は別。
+ブラウザごとのローカル会話履歴は自動移行・同期せず、新originでは新しい保存領域になる。
+本番Web domain・main・iOS repo・Rules・Functions・Secretは変更しない。
