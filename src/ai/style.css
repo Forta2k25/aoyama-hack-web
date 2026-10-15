@@ -103,3 +103,34 @@
 .ai-schedule-settings input,.ai-schedule-settings select,.ai-schedule-settings textarea { box-sizing:border-box;display:block;max-width:100%;width:100%;margin-top:5px;padding:7px;border:1px solid #cfdfd5;border-radius:7px;font:inherit;background:white;color:#365e4a }
 .ai-legacy-text { white-space:pre-wrap;overflow-wrap:anywhere;color:#758a7d }
 .ai-legacy-history { max-height:240px;overflow:auto }
+
+/* A lecture conversation uses the browser viewport, independent of the timetable panel. */
+html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
+.ai-chat-screen { position:fixed;inset:0;margin:0;border:0;border-radius:0;box-sizing:border-box;width:100%;height:100vh;height:100dvh;max-width:none;max-height:none;padding:0;background:#f7faf8;color:#1b3430;overscroll-behavior:contain }
+.ai-chat-screen[open] { display:flex;flex-direction:column }
+.ai-chat-screen::backdrop { background:#f7faf8 }
+.ai-chat-screen-header { display:flex;align-items:center;gap:20px;flex:none;padding:18px max(24px,env(safe-area-inset-right)) 16px max(24px,env(safe-area-inset-left));border-bottom:1px solid #dfe9e3;background:#fff }
+.ai-chat-screen-titles { min-width:0 }
+.ai-chat-screen .ai-session-course { margin:0;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.ai-chat-screen .ai-session-title { margin:3px 0 0;color:#7b9183;font-size:12px }
+.ai-chat-screen-header .ai-small-button { flex:none;padding:9px 12px;font-size:12px!important }
+.ai-chat-screen .ai-session-chat { box-sizing:border-box;display:flex;flex-direction:column;flex:1;min-height:0;width:100%;max-width:1000px;margin:0 auto;padding:14px 24px max(8px,env(safe-area-inset-bottom));overflow:auto }
+.ai-chat-screen .ai-thread { flex:1;min-height:160px;max-height:none;padding:10px 0 20px }
+.ai-chat-screen .ai-thread:has(.ai-welcome:not([hidden])) { display:flex;flex-direction:column;justify-content:center }
+.ai-chat-screen .ai-materials { flex:none;max-height:min(16dvh,150px);margin-bottom:6px }
+.ai-chat-screen .ai-evidence { flex:none;margin:8px 0 }
+.ai-chat-screen .ai-evidence-body { max-height:min(23dvh,220px) }
+.ai-chat-screen .ai-notice,.ai-chat-screen .ai-course-identity,.ai-chat-screen .ai-materials-header,.ai-chat-screen .ai-suggestions,.ai-chat-screen .ai-status,.ai-chat-screen .ai-composer,.ai-chat-screen .ai-composer-caption { flex:none }
+.ai-chat-screen .ai-message-text { font-size:15px }
+.ai-chat-screen .ai-message--user { max-width:80%;margin-left:auto }
+.ai-chat-screen .ai-composer { position:sticky;bottom:0;background:#fff;padding:14px 16px }
+.ai-chat-screen .ai-composer-input { font-size:16px!important;min-height:60px;max-height:120px }
+.ai-chat-screen .ai-suggestions { margin-bottom:10px }
+@media(max-width:799px){
+ .ai-chat-screen-header { gap:12px;padding:12px 14px;padding-top:max(12px,env(safe-area-inset-top)) }
+ .ai-chat-screen .ai-session-course { font-size:14px }
+ .ai-chat-screen .ai-session-chat { padding:10px 14px max(8px,env(safe-area-inset-bottom)) }
+ .ai-chat-screen .ai-thread { min-height:120px }
+ .ai-chat-screen .ai-message-text { font-size:14px }
+ .ai-chat-screen .ai-notice { font-size:10px }
+}
