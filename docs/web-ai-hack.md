@@ -84,8 +84,9 @@ localUUIDからcanonical offeringへの自動付け替え・共有は追加し�
 3. ログイン先のlocalhost/preview domainがFirebase Authの承認済みドメインに含まれること。
 4. 署名付きXML Storage PUTには、利用するWeb originと必要なPUT/headerを許可する
    bucket CORSが必要。iOSで送信できてもブラウザではCORS拒否になり得る。
-   2026-10-15のread-only確認ではCORS設定は空。localhostからの署名付きPUTに
-   必要なCORS追加は別途承認の回答待ち。失敗時は原本をローカルに残し再送を案内する。
+   2026-10-15にユーザーの明示承認後、`http://localhost:5178` のPUT限定CORSを追加済み。
+   対応headerはContent-Type / Content-MD5 / x-goog-if-generation-match /
+   x-goog-content-length-range、preflight cacheは300秒。失敗時は原本をローカルに残し再送を案内する。
    `no-cors`で回避したり、公開bucketへ変更したり、サーバーキーをWebへ置いたりしない。
 5. CallableのCORS/App Check/IAMがブラウザからの既存Firebase clientを許可していること。
 
@@ -163,8 +164,18 @@ UIデバッグでは資料メモ、画像、PDF、音声ファイル、チャッ
 - 資料系9 CallableとaiChatの計10件へlocalhost originの匿名POSTを実施。
   すべて401 UNAUTHENTICATED。CallableのCORSは当該originを返す。資料作成やprovider処理はしていない。
 - Auth承認済みdomainにはlocalhostが存在。127.0.0.1は未登録。
-- Storage bucketのCORSは空。実ファイルuploadの確認には、既存Rules/IAMを保持した
-  localhost限定PUTのCORS追加承認が必要。
+- 初回確認ではStorage CORSは空。その後、明示承認に従いlocalhost:5178のPUTだけを
+  1回の条件付きbucket metadata PATCHで追加。再GETとOPTIONS検証にPASS。
+  localhost:5179 / 127.0.0.1:5178 / 外部originのPUT、およびlocalhost:5178のGETには
+  CORS許可ヘッダーが返らない。OPTIONSの200だけでは許可とは判定していない。
+- 追加後、bucket IAMはetagだけが変化。bindings / version / resourceは完全一致。
+  CORSとmetadataのrevision項目以外のbucket設定（lifecycle等）も完全一致。
+  Rules/IAM設定変更・Storage object作成や変更は行っていない。
+- CORSはbucket単位でありai-inputs prefixだけには限定できない。署名付きURLの
+  object/owner限定とWeb側の送信先validationを維持し、CORSを認証の代わりにしない。
+  本番hostや他originは追加していない。
+- 戻す場合は、最新metadataと既存CORSを照合し、承認後に今回の1件だけを除去する。
+  他設定を上書きせず、最新metagenerationによる条件付きPATCHを使う。今回rollbackは未実施。
 - pilotログイン後のメモ/チャット/ファイルE2Eは未確認。匿名拒否を実通信成功とは扱わない。
 - 共有Functions/Rules/IAM/Secret、アプリのコード・作業コピーは変更していない。
 
