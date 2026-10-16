@@ -1,3 +1,4 @@
+import { prepareImageUpload } from './image'
 import { audioDurationSeconds } from './media'
 import { courseKey, offeringId, sessionKey, dateForDayID } from './identity'
 import { fileKind, mimeFor, safeError } from './format'
@@ -71,7 +72,9 @@ export class AIController {
   async stageFile(file:File){
     const type=fileKind(file),limit=type==='image'?20:type==='pdf'?25:100
     if(!file.size||file.size>limit*1024*1024)throw Error(`WEB_${type==='pdf'?'PDF':type==='image'?'画像':'音声'}は${limit}MB以下の空でないファイルを選んでください。`)
-    return this.stage(type,file.name,mimeFor(file,type),file.size,{file,...(type==='audio'?{durationSeconds:await audioDurationSeconds(file)}:{})})
+    const prepared=type==='image'?await prepareImageUpload(file,this.lifetime.signal):file
+    this.lifetime.signal.throwIfAborted()
+    return this.stage(type,file.name,mimeFor(prepared,type),prepared.size,{file:prepared,...(type==='audio'?{durationSeconds:await audioDurationSeconds(file)}:{})})
   }
   async stageNote(text:string){
     if(!text.trim()||text.length>10000)throw Error('WEB_メモは1〜10,000文字で入力してください。')

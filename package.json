@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@netlify/functions": "^5.2.2",
-    "firebase": "^12.13.0"
+    "firebase": "^12.13.0",
+    "heic-to": "1.6.6"
   }
 }

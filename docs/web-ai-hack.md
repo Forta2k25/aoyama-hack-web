@@ -360,3 +360,13 @@ Firebase Googleログインにはexact preview hostnameのAuthorized domains設�
 pilot allowlistは自動追加しない。URLの入場許可とAI利用認可は別。
 ブラウザごとのローカル会話履歴は自動移行・同期せず、新originでは新しい保存領域になる。
 本番Web domain・main・iOS repo・Rules・Functions・Secretは変更しない。
+
+## HEIC / HEIF photos (2026-10-16)
+
+- The Web file picker and drag/drop accept `.heic` / `.heif`, including upper-case extensions, empty MIME values and HEIC/HEIF sequence MIME values.
+- Before `aiCreateSource`, the browser converts HEIC/HEIF into a JPEG upload copy using `heic-to@1.6.6` (`heic-to/csp`). The codec loads only for HEIC/HEIF and decodes in its local worker; there is no external conversion/upload service. JPEG quality is 0.95, with no client resize. A multi-image HEIC uses the decoder's first still image.
+- An Apple picker that already returned JPEG/PNG bytes with an HEIC filename is detected by its byte signature and is not decoded again. Existing JPEG/PNG/WebP/PDF/m4a processing remains unchanged.
+- Preserve the user's original display filename, but persist the **converted** upload bytes and truthful MIME/size in IndexedDB before any cloud admission. Interrupted uploads and reload/retry reuse those same bytes, request ID and remote source. The selected original file on the user's device is not modified.
+- Invalid/unsupported HEIC, empty/invalid decoder output, a converted copy over 20 MiB, cancellation or conversion timeout stops before creating a cloud source. There is no raw HEIC or OCR fallback. Existing failed HEIC sources are not bulk-converted; select the photo again to create a fresh JPEG-backed source.
+- Production Functions, image routing, models, Rules, IAM, Secret, quota and pilot settings are unchanged. Library license and matching source reference: `/licenses/heic-to.txt`; LGPL/GPL texts are retained with the distribution.
+- Verification: HEIC/HEIF MIME/extension and Apple-picker cases; conversion failure/cancellation before admission; durable JPEG metadata and retry without repeated conversion/source creation; actual browser JPEG byte signature and portrait/landscape image dimensions. Synthetic binary fixtures and screenshots stay under ignored `build/`.

@@ -1,4 +1,5 @@
 import type { Course } from '../timetable'
+import { imageFileAccept, isHEIC } from '../ai/image'
 import { AIController } from '../ai/controller'
 import { AIStore } from '../ai/store'
 import { resolveContext, offeringId, courseKey } from '../ai/identity'
@@ -40,7 +41,7 @@ export class CourseChat {
     this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=3;this.textarea.setAttribute('aria-label','AIへのメッセージ')
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
     const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
-    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept='image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf,audio/mp4,.m4a';fileInput.hidden=true
+    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept=`${imageFileAccept},application/pdf,audio/mp4,.m4a`;fileInput.hidden=true
     menuBody.append(button('写真・PDF・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
     this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
@@ -63,8 +64,12 @@ export class CourseChat {
   private async perform(action:()=>Promise<unknown>){try{await action()}catch(e){if(!this.disposed)this.status.textContent=safeError(e)}}
   private async addFiles(files:File[]){
     if(!this.controller||this.disposed)return
-    // Persist originals before any upload. Each item retains its own request ID and retry button.
-    for(const file of files.slice(0,8))await this.perform(()=>this.controller!.stageFile(file))
+    // Persist the prepared upload bytes before cloud admission; retries reuse that same copy.
+    for(const file of files.slice(0,8)){
+      if(this.disposed)break
+      if(isHEIC(file,file.name))this.status.textContent='HEIC/HEIFをこの端末でJPEGに変換しています…'
+      await this.perform(()=>this.controller!.stageFile(file))
+    }
     if(files.length>8)this.status.textContent='一度に追加できる資料は8件までです。'
   }
   private showNote(){
