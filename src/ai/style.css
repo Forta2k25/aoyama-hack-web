@@ -159,3 +159,28 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
  .ai-chat-screen-header .ai-small-button { padding:9px 8px;font-size:10px!important }
  .ai-materials-panel-header { padding-top:max(16px,env(safe-area-inset-top)) }
 }
+
+/* Upload acknowledgement stays beside the message input; the full library stays in its drawer. */
+.ai-composer-attachments { display:flex;gap:10px;max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;padding:0 0 10px;margin-bottom:8px }
+.ai-attachment-card { flex:0 0 220px;min-width:0;border:1px solid #dbe9e1;border-radius:12px;background:#f8fbf9;padding:8px }
+.ai-attachment-open { display:flex;align-items:center;gap:9px;width:100%;min-width:0;padding:0;border:0;text-align:left;background:transparent;color:inherit }
+.ai-attachment-preview { flex:none;display:grid;place-items:center;width:48px;height:48px;border-radius:8px;background:#e5f0e9;overflow:hidden }
+.ai-attachment-preview img { display:block;width:100%;height:100%;object-fit:cover }
+.ai-attachment-kind { font-size:12px;font-weight:700;color:#457861 }
+.ai-attachment-info { display:grid;gap:4px;min-width:0 }
+.ai-attachment-name { font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.ai-attachment-status { font-size:10px;line-height:1.5;color:#698075 }
+.ai-attachment-card[data-state=ready] .ai-attachment-status,.ai-attachment-card[data-state=processing] .ai-attachment-status { color:#227255 }
+.ai-attachment-card[data-state=failed] { border-color:#d9a87d;background:#fff8f0 }
+.ai-attachment-card[data-state=failed] .ai-attachment-status { color:#975726 }
+.ai-attachment-card progress { display:block;width:100%;height:5px;margin-top:7px;accent-color:#2d8067 }
+.ai-attachment-tools { display:flex;justify-content:flex-end;gap:5px;margin-top:5px }
+.ai-attachment-tools:not(:has(button:not([hidden]))) { display:none }
+.ai-attachment-tools .ai-small-button { padding:3px 6px;font-size:10px!important }
+.ai-message-actions { display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-top:10px }
+.ai-message-actions .ai-small-button { display:inline-flex;align-items:center;min-height:32px;padding:5px 10px }
+.ai-message-action-status { font-size:11px;color:#5b7d6c;overflow-wrap:anywhere }
+@media(max-width:799px){
+ .ai-attachment-card { flex-basis:200px }
+ .ai-message-actions .ai-small-button { min-height:36px }
+}

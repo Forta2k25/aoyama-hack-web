@@ -1,5 +1,6 @@
 import type { Course } from '../timetable'
 import { imageFileAccept, isHEIC } from '../ai/image'
+import { copyAnswer, shareAnswer } from '../ai/answer-actions'
 import { AIController } from '../ai/controller'
 import { AIStore } from '../ai/store'
 import { resolveContext, offeringId, courseKey } from '../ai/identity'
@@ -16,6 +17,8 @@ export class CourseChat {
   private selectedEvidence?:string;private evidenceSignature='';private evidence=el('details','ai-evidence');private evidenceBody=el('div','ai-evidence-body');private evidenceTicket=0
   private materialsPanel=el('dialog','ai-materials-dialog');private materialsButton=button('資料 (0)',()=>this.openMaterials(),'ai-materials-toggle');private materialsEmpty=el('p','ai-materials-empty','この授業回には、まだ資料がありません。');private toolbar?:HTMLElement
   private bubbles=new Map<string,HTMLElement>();private initError='';private hasAutoScrolled=false
+  private attachments=el('div','ai-composer-attachments');private attachmentCards=new Map<string,HTMLElement>()
+  private thumbnails=new Map<string,{file:Blob;url:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
   constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement){this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
@@ -45,7 +48,8 @@ export class CourseChat {
     menuBody.append(button('写真・PDF・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
     this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
-    tools.append(menu,this.stop,this.send);this.composer.append(this.textarea,tools,fileInput)
+    this.attachments.setAttribute('role','list');this.attachments.setAttribute('aria-label','追加した資料とアップロード状況');this.attachments.hidden=true
+    tools.append(menu,this.stop,this.send);this.composer.append(this.attachments,this.textarea,tools,fileInput)
     this.composer.addEventListener('submit',e=>{e.preventDefault();const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);menu.open=false})
     this.root.addEventListener('dragover',e=>{e.preventDefault();this.root.classList.add('ai-dragging')})
@@ -68,7 +72,7 @@ export class CourseChat {
     for(const file of files.slice(0,8)){
       if(this.disposed)break
       if(isHEIC(file,file.name))this.status.textContent='HEIC/HEIFをこの端末でJPEGに変換しています…'
-      await this.perform(()=>this.controller!.stageFile(file))
+      await this.perform(async()=>{const row=await this.controller!.stageFile(file);this.recentAttachments.add(row.id);this.render()})
     }
     if(files.length>8)this.status.textContent='一度に追加できる資料は8件までです。'
   }
@@ -94,16 +98,17 @@ export class CourseChat {
   }
   private render(){
     const c=this.controller;if(!c||this.disposed)return
+    const nearBottom=this.thread.scrollHeight-this.thread.scrollTop-this.thread.clientHeight<100
     this.status.textContent=c.error||this.initError||(c.loading?'資料を確認しています…':c.sending?'AIが返信しています…':'')
     this.send.disabled=c.loading||c.sending;this.stop.hidden=!c.sending;this.textarea.disabled=c.loading
     this.materials.replaceChildren(...c.materials.map(row=>this.material(row)))
+    this.renderAttachments()
     this.materialsButton.textContent=`資料 (${c.materials.length})`;this.materialsEmpty.hidden=c.materials.length>0
     const pending=c.materials.filter(row=>['local','uploading','processing'].includes(row.state)).length
     this.materialsButton.title=pending?`${pending}件の資料を処理中です`:'この授業回の資料一覧を開く'
     if(this.selectedEvidence&&!c.materials.some(row=>row.id===this.selectedEvidence)){this.selectedEvidence=undefined;this.evidenceSignature='';this.evidenceTicket++;this.evidence.hidden=true;this.evidenceBody.replaceChildren()}
     const existing=[...this.bubbles.keys()];for(const id of existing)if(!c.messages.some(x=>x.id===id)){this.bubbles.get(id)?.remove();this.bubbles.delete(id)}
     this.thread.querySelector('.ai-welcome')?.toggleAttribute('hidden',c.messages.length>0)
-    const nearBottom=this.thread.scrollHeight-this.thread.scrollTop-this.thread.clientHeight<100
     for(const message of c.messages)this.message(message)
     if(nearBottom||!this.hasAutoScrolled){this.thread.scrollTop=this.thread.scrollHeight;this.hasAutoScrolled=true}
     const selected=c.materials.find(x=>x.id===this.selectedEvidence)
@@ -113,7 +118,7 @@ export class CourseChat {
   }
   private material(row:LocalMaterial){
     const c=this.controller!,card=el('div','ai-material'),header=el('div','ai-material-row'),check=el('input');check.type='checkbox';check.checked=c.selected.has(row.id);check.disabled=row.state!=='ready';check.setAttribute('aria-label',`${row.title}を回答に参照する`)
-    check.addEventListener('change',()=>{if(check.checked&&c.selected.size>=8){check.checked=false;this.status.textContent='参照する資料は8件まで選択できます。';return}check.checked?c.selected.add(row.id):c.selected.delete(row.id)})
+    check.addEventListener('change',()=>{if(check.checked&&c.selected.size>=8){check.checked=false;this.status.textContent='参照する資料は8件まで選択できます。';return}if(check.checked){c.selected.add(row.id);this.dismissedAttachments.delete(row.id)}else c.selected.delete(row.id);this.renderAttachments()})
     const title=el('span','ai-material-title',row.title),status=el('span','ai-material-status',statusLabel[row.state==='processing'?row.remote?.status??row.state:row.state]??row.state);header.append(check,title,status);card.append(header)
     if(row.state==='uploading'){const p=el('progress');p.max=100;p.value=c.uploadProgress.get(row.id)??0;p.setAttribute('aria-label','アップロード進捗');card.append(p)}
     if(row.error)card.append(el('p','ai-material-error',row.error))
@@ -124,11 +129,71 @@ export class CourseChat {
     actions.append(button('削除',()=>{if(confirm(`「${row.title}」を削除しますか？ AIに保存された本文と原本も削除します。`))void this.perform(()=>c.delete(row.id))}))
     card.append(actions);return card
   }
+  private renderAttachments(){
+    const c=this.controller;if(!c||this.disposed)return
+    const rows=c.materials.filter(row=>!row.wantsDeletion&&row.state!=='deleting'&&!this.dismissedAttachments.has(row.id)&&(this.recentAttachments.has(row.id)||c.selected.has(row.id)||row.state!=='ready'))
+    const ids=new Set(rows.map(row=>row.id))
+    for(const [id,entry]of this.thumbnails)if(!ids.has(id)){URL.revokeObjectURL(entry.url);this.thumbnails.delete(id)}
+    for(const [id,card]of this.attachmentCards)if(!ids.has(id)){card.remove();this.attachmentCards.delete(id)}
+    for(const row of rows){
+      let card=this.attachmentCards.get(row.id)
+      if(!card){
+        card=el('div','ai-attachment-card');card.setAttribute('role','listitem')
+        const open=button('',()=>this.openMaterials(),'ai-attachment-open'),preview=el('span','ai-attachment-preview'),image=el('img'),kind=el('span','ai-attachment-kind'),info=el('span','ai-attachment-info'),name=el('strong','ai-attachment-name'),state=el('span','ai-attachment-status')
+        image.loading='lazy';image.decoding='async';image.width=48;image.height=48;image.hidden=true;image.onerror=()=>{image.hidden=true;kind.hidden=false}
+        state.setAttribute('role','status');preview.append(image,kind);info.append(name,state);open.append(preview,info)
+        const progress=el('progress');progress.max=100;progress.setAttribute('aria-label','資料のアップロード進捗')
+        const tools=el('div','ai-attachment-tools'),retry=button('再送',()=>void this.perform(()=>c.retry(row.id)),'ai-small-button ai-attachment-retry'),dismiss=button('回答から外す',()=>{c.selected.delete(row.id);this.recentAttachments.delete(row.id);this.dismissedAttachments.add(row.id);this.render()},'ai-small-button ai-attachment-dismiss')
+        tools.append(retry,dismiss);card.append(open,progress,tools);this.attachmentCards.set(row.id,card)
+      }
+      const awaiting=row.state==='processing'&&row.remote?.status==='awaiting_upload'
+      card.dataset.state=awaiting?'awaiting_upload':row.state
+      const name=card.querySelector<HTMLElement>('.ai-attachment-name')!,open=card.querySelector<HTMLButtonElement>('.ai-attachment-open')!,state=card.querySelector<HTMLElement>('.ai-attachment-status')!,image=card.querySelector<HTMLImageElement>('img')!,kind=card.querySelector<HTMLElement>('.ai-attachment-kind')!,progress=card.querySelector<HTMLProgressElement>('progress')!
+      name.textContent=row.title;name.title=row.title;open.setAttribute('aria-label',`${row.title}を資料一覧で確認`)
+      kind.textContent={image:'写真',pdf:'PDF',audio:'音声',note:'メモ'}[row.type];image.alt=`${row.title}のサムネイル`
+      const file=row.file,canPreview=row.type==='image'&&file&&/^image\/(jpeg|png|webp)$/.test(file.type||row.mime)
+      if(canPreview){
+        let entry=this.thumbnails.get(row.id)
+        if(entry?.file!==file){if(entry)URL.revokeObjectURL(entry.url);entry={file,url:URL.createObjectURL(file)};this.thumbnails.set(row.id,entry)}
+        if(image.getAttribute('src')!==entry.url){image.src=entry.url;image.hidden=false;kind.hidden=true}
+      }else{image.hidden=true;kind.hidden=false;image.removeAttribute('src')}
+      const percent=c.uploadProgress.get(row.id),label=row.state==='ready'?`✓ ${row.type==='note'?'保存':'アップロード'}・${row.remote?.status==='partial_ready'?'一部解析完了':'解析完了'}`:row.state==='processing'?(awaiting?'アップロード未完了・再送できます':['queued','extracting','indexing'].includes(row.remote?.status??'')?`${row.type==='note'?'保存済み':'✓ アップロード済み'}・解析中`:'送信状況を確認中…'):row.state==='failed'?'送信/解析失敗・再送できます':row.state==='uploading'?(percent===undefined?'送信準備中…':`アップロード中 ${percent}%`):'端末に保存済み・送信待ち'
+      const description=label+(row.state==='ready'&&!c.selected.has(row.id)?'・回答対象外':'')
+      if(state.textContent!==description)state.textContent=description
+      progress.hidden=row.state!=='uploading';if(percent===undefined)progress.removeAttribute('value');else progress.value=percent
+      card.querySelector<HTMLButtonElement>('.ai-attachment-retry')!.hidden=row.state!=='failed'&&!awaiting
+      const dismiss=card.querySelector<HTMLButtonElement>('.ai-attachment-dismiss')!;dismiss.hidden=row.state!=='ready';dismiss.textContent=c.selected.has(row.id)?'回答から外す':'表示を閉じる'
+    }
+    const cards=rows.map(row=>this.attachmentCards.get(row.id)!)
+    if(cards.length!==this.attachments.children.length||cards.some((card,i)=>this.attachments.children[i]!==card))this.attachments.replaceChildren(...cards)
+    this.attachments.hidden=cards.length===0
+  }
   private message(message:Message){
     let bubble=this.bubbles.get(message.id)
     if(!bubble){bubble=el('article',`ai-message ai-message--${message.role}`);bubble.append(el('p','ai-message-role',message.role==='assistant'?'✦ AIハック':'あなた'),el('div','ai-message-text'),el('small','ai-message-state'));this.thread.append(bubble);this.bubbles.set(message.id,bubble)}
     bubble.querySelector('.ai-message-text')!.textContent=message.text||(message.state==='sending'?'考えています…':'')
     bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?'返信中…':message.state==='failed'?'送信に失敗しました。再送は自動で行いません。':message.state==='interrupted'?'中断した返信（未完了）':message.recognition?metadataText(message.recognition):''
+    if(message.role==='assistant'){
+      let actions=bubble.querySelector<HTMLElement>('.ai-message-actions')
+      if(!actions){
+        actions=el('div','ai-message-actions');const feedback=el('span','ai-message-action-status');feedback.setAttribute('role','status')
+        const copy=button('コピー',()=>void this.exportAnswer(message.id,false),'ai-small-button ai-answer-copy'),share=button('共有',()=>void this.exportAnswer(message.id,true),'ai-small-button ai-answer-share')
+        copy.setAttribute('aria-label','このAI回答をコピー');share.setAttribute('aria-label','このAI回答を共有');actions.append(copy,share,feedback);bubble.append(actions)
+      }
+      actions.hidden=message.state!=='done'||!message.text.trim()
+    }
+  }
+  private async exportAnswer(id:string,sharing:boolean){
+    const message=this.controller?.messages.find(row=>row.id===id),actions=this.bubbles.get(id)?.querySelector<HTMLElement>('.ai-message-actions')
+    if(this.disposed||!message||message.role!=='assistant'||message.state!=='done'||!message.text.trim()||!actions)return
+    const action=actions.querySelector<HTMLButtonElement>(sharing?'.ai-answer-share':'.ai-answer-copy')!,feedback=actions.querySelector<HTMLElement>('.ai-message-action-status')!
+    if(action.disabled)return
+    action.disabled=true
+    try{
+      const result=sharing?await shareAnswer(message.text,`${this.course.title}のAI回答`):(await copyAnswer(message.text),'copied' as const)
+      if(!this.disposed)feedback.textContent=result==='cancelled'?'共有をキャンセルしました':result==='shared'?'共有画面に渡しました':sharing?'共有に未対応のため回答をコピーしました':'コピーしました'
+    }catch{if(!this.disposed)feedback.textContent=sharing?'共有できませんでした。「コピー」をお試しください。':'コピーできませんでした。本文を選択してコピーしてください。'}
+    finally{action.disabled=false}
   }
   private async loadEvidence(id:string){
     const c=this.controller,row=c?.materials.find(x=>x.id===id);if(!c||!row?.remote)return
@@ -148,5 +213,5 @@ export class CourseChat {
     if(value.latency){const labels:Record<string,string>={uploadMs:'送信',queueWaitMs:'待機',workerStartupMs:'起動',routerMs:'Router',nativeExtractionMs:'本文抽出',ocrProbeMs:'OCR probe',ocrMs:'OCR',aiMs:'AI',persistenceMs:'保存',evidenceMs:'本文取得',totalProcessingMs:'worker全体'};const lines=Object.entries(labels).map(([key,label])=>`${label}: ${typeof value.latency![key]==='number'?(Number(value.latency![key])/1000).toFixed(2)+'秒':'未計測'}`);body.append(el('pre','ai-metadata',lines.join('\n')))}
     this.evidenceBody.replaceChildren(body)
   }
-  dispose(){this.disposed=true;if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
+  dispose(){this.disposed=true;for(const entry of this.thumbnails.values())URL.revokeObjectURL(entry.url);this.thumbnails.clear();this.attachmentCards.clear();if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
 }
