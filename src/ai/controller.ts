@@ -13,12 +13,15 @@ export function persistentSource(source:Receipt):RemoteSource {
 export class AIController {
   materials:LocalMaterial[]=[]; messages:Message[]=[]; selected=new Set<string>(); uploadProgress=new Map<string,number>()
   loading=true; error=''; sending=false; private lifetime=new AbortController(); private reply?:AbortController
+  private preparingMaterials=new Set<symbol>()
   private requests=new Map<string,AbortController>(); private timer?:ReturnType<typeof setTimeout>; private polls=0
   readonly key:string;readonly threadKey:string
   readonly uid:string;readonly context:CourseContext;readonly backend:AIBackend;readonly store:AIStore;private readonly changed:()=>void
   constructor(uid:string,context:CourseContext,backend:AIBackend,store:AIStore,changed:()=>void){this.uid=uid;this.context=context;this.backend=backend;this.store=store;this.changed=changed;this.key=courseKey(context);this.threadKey=sessionKey(context)}
   private notify(){if(!this.lifetime.signal.aborted)this.changed()}
   private async save(row:LocalMaterial){await this.store.putMaterial(row);this.notify()}
+  get pendingMaterialCount(){return this.preparingMaterials.size+this.materials.filter(row=>!row.wantsDeletion&&['local','uploading','processing'].includes(row.state)).length}
+  get materialWaitReason(){return this.pendingMaterialCount?`資料を準備中です。アップロード・解析の完了後に送信できます（残り${this.pendingMaterialCount}件）。`:''}
   async init(){
     try{
       const [materials,messages]=await Promise.all([this.store.materials(this.uid,this.key,this.threadKey),this.store.messages(this.uid,this.key,this.threadKey)])
@@ -72,18 +75,23 @@ export class AIController {
   async stageFile(file:File){
     const type=fileKind(file),limit=type==='image'?20:type==='pdf'?25:100
     if(!file.size||file.size>limit*1024*1024)throw Error(`WEB_${type==='pdf'?'PDF':type==='image'?'画像':'音声'}は${limit}MB以下の空でないファイルを選んでください。`)
-    const prepared=type==='image'?await prepareImageUpload(file,this.lifetime.signal):file
-    this.lifetime.signal.throwIfAborted()
-    return this.stage(type,file.name,mimeFor(prepared,type),prepared.size,{file:prepared,...(type==='audio'?{durationSeconds:await audioDurationSeconds(file)}:{})})
+    const preparation=Symbol();this.preparingMaterials.add(preparation);this.notify()
+    try{
+      const prepared=type==='image'?await prepareImageUpload(file,this.lifetime.signal):file
+      this.lifetime.signal.throwIfAborted()
+      return await this.stage(type,file.name,mimeFor(prepared,type),prepared.size,{file:prepared,...(type==='audio'?{durationSeconds:await audioDurationSeconds(file)}:{})},preparation)
+    }finally{this.preparingMaterials.delete(preparation);this.notify()}
   }
   async stageNote(text:string){
     if(!text.trim()||text.length>10000)throw Error('WEB_メモは1〜10,000文字で入力してください。')
-    return this.stage('note','資料メモ','text/plain',new Blob([text]).size,{text:text.trim()})
+    const preparation=Symbol();this.preparingMaterials.add(preparation);this.notify()
+    try{return await this.stage('note','資料メモ','text/plain',new Blob([text]).size,{text:text.trim()},preparation)}
+    finally{this.preparingMaterials.delete(preparation);this.notify()}
   }
-  private async stage(type:SourceKind,title:string,mime:string,size:number,content:Pick<LocalMaterial,'file'|'text'|'durationSeconds'>){
+  private async stage(type:SourceKind,title:string,mime:string,size:number,content:Pick<LocalMaterial,'file'|'text'|'durationSeconds'>,preparation:symbol){
     const row:LocalMaterial={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,clientRequestId:crypto.randomUUID(),context:structuredClone(this.context),type,title,mime,size,...content,state:'local',createdAt:Date.now()}
     // If the durable write fails (quota/private browsing), do not start any cloud write.
-    await this.store.putMaterial(row);this.lifetime.signal.throwIfAborted();this.materials.push(row);this.notify();void this.sendMaterial(row)
+    await this.store.putMaterial(row);this.lifetime.signal.throwIfAborted();this.preparingMaterials.delete(preparation);this.materials.push(row);this.notify();void this.sendMaterial(row)
     return row
   }
   async retry(id:string){const row=this.materials.find(x=>x.id===id);if(row)await this.sendMaterial(row)}
@@ -126,6 +134,8 @@ export class AIController {
   async evidence(id:string,preview:boolean){const row=this.materials.find(x=>x.id===id);if(!row?.remote)throw Error('WEB_未送信の資料です。');return this.backend.evidence(row.remote.sourceId,preview,this.lifetime.signal)}
   async send(text:string,mode:'reply'|'intro'='reply'){
     if(this.sending)throw Error('WEB_返信を待つか、生成を中断してください。')
+    if(this.loading)throw Error('WEB_資料の確認が終わるまでお待ちください。')
+    if(this.materialWaitReason)throw Error('WEB_'+this.materialWaitReason)
     if(mode==='reply'&&(!text.trim()||text.length>2000))throw Error('WEB_メッセージは1〜2,000文字で入力してください。')
     const materials=this.materials.filter(x=>this.selected.has(x.id)&&x.remote&&['ready','partial_ready'].includes(x.remote.status)),sourceIds=materials.map(x=>x.remote!.sourceId)
     if(sourceIds.length>8)throw Error('WEB_一度に参照できる資料は8件までです。')

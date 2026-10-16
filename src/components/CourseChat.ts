@@ -1,10 +1,11 @@
 import type { Course } from '../timetable'
 import { imageFileAccept, isHEIC } from '../ai/image'
 import { copyAnswer, shareAnswer } from '../ai/answer-actions'
+import { materialProgress } from '../ai/material-progress'
 import { AIController } from '../ai/controller'
 import { AIStore } from '../ai/store'
 import { resolveContext, offeringId, courseKey } from '../ai/identity'
-import { evidenceText, metadataText, safeError, statusLabel } from '../ai/format'
+import { evidenceText, metadataText, safeError } from '../ai/format'
 import type { AIBackend, CourseContext, Evidence, LocalMaterial, Message } from '../ai/types'
 
 function el<K extends keyof HTMLElementTagNameMap>(tag:K,className='',text?:string){const node=document.createElement(tag);node.className=className;if(text!==undefined)node.textContent=text;return node}
@@ -18,6 +19,7 @@ export class CourseChat {
   private materialsPanel=el('dialog','ai-materials-dialog');private materialsButton=button('資料 (0)',()=>this.openMaterials(),'ai-materials-toggle');private materialsEmpty=el('p','ai-materials-empty','この授業回には、まだ資料がありません。');private toolbar?:HTMLElement
   private bubbles=new Map<string,HTMLElement>();private initError='';private hasAutoScrolled=false
   private attachments=el('div','ai-composer-attachments');private attachmentCards=new Map<string,HTMLElement>()
+  private sendWait=el('p','ai-send-wait')
   private thumbnails=new Map<string,{file:Blob;url:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
   constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement){this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
@@ -49,8 +51,9 @@ export class CourseChat {
     this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
     this.attachments.setAttribute('role','list');this.attachments.setAttribute('aria-label','追加した資料とアップロード状況');this.attachments.hidden=true
-    tools.append(menu,this.stop,this.send);this.composer.append(this.attachments,this.textarea,tools,fileInput)
-    this.composer.addEventListener('submit',e=>{e.preventDefault();const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
+    this.sendWait.id=`ai-send-wait-${crypto.randomUUID()}`;this.sendWait.setAttribute('role','status');this.sendWait.hidden=true;this.textarea.setAttribute('aria-describedby',this.sendWait.id)
+    tools.append(menu,this.stop,this.send);this.composer.append(this.attachments,this.sendWait,this.textarea,tools,fileInput)
+    this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled)return;const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);menu.open=false})
     this.root.addEventListener('dragover',e=>{e.preventDefault();this.root.classList.add('ai-dragging')})
     this.root.addEventListener('dragleave',()=>this.root.classList.remove('ai-dragging'))
@@ -100,7 +103,10 @@ export class CourseChat {
     const c=this.controller;if(!c||this.disposed)return
     const nearBottom=this.thread.scrollHeight-this.thread.scrollTop-this.thread.clientHeight<100
     this.status.textContent=c.error||this.initError||(c.loading?'資料を確認しています…':c.sending?'AIが返信しています…':'')
-    this.send.disabled=c.loading||c.sending;this.stop.hidden=!c.sending;this.textarea.disabled=c.loading
+    const waiting=c.materialWaitReason
+    this.send.disabled=c.loading||c.sending||!!waiting;this.send.textContent=waiting?'資料を準備中…':'送信 ↑';this.send.title=waiting
+    this.sendWait.hidden=!waiting;this.sendWait.textContent=waiting?waiting+' 文章は入力できます。':''
+    this.stop.hidden=!c.sending;this.textarea.disabled=c.loading
     this.materials.replaceChildren(...c.materials.map(row=>this.material(row)))
     this.renderAttachments()
     this.materialsButton.textContent=`資料 (${c.materials.length})`;this.materialsEmpty.hidden=c.materials.length>0
@@ -119,13 +125,13 @@ export class CourseChat {
   private material(row:LocalMaterial){
     const c=this.controller!,card=el('div','ai-material'),header=el('div','ai-material-row'),check=el('input');check.type='checkbox';check.checked=c.selected.has(row.id);check.disabled=row.state!=='ready';check.setAttribute('aria-label',`${row.title}を回答に参照する`)
     check.addEventListener('change',()=>{if(check.checked&&c.selected.size>=8){check.checked=false;this.status.textContent='参照する資料は8件まで選択できます。';return}if(check.checked){c.selected.add(row.id);this.dismissedAttachments.delete(row.id)}else c.selected.delete(row.id);this.renderAttachments()})
-    const title=el('span','ai-material-title',row.title),status=el('span','ai-material-status',statusLabel[row.state==='processing'?row.remote?.status??row.state:row.state]??row.state);header.append(check,title,status);card.append(header)
+    const detail=materialProgress(row,c.uploadProgress.get(row.id)),title=el('span','ai-material-title',row.title),status=el('span','ai-material-status',detail.label);header.append(check,title,status);card.append(header)
     if(row.state==='uploading'){const p=el('progress');p.max=100;p.value=c.uploadProgress.get(row.id)??0;p.setAttribute('aria-label','アップロード進捗');card.append(p)}
     if(row.error)card.append(el('p','ai-material-error',row.error))
     const actions=el('div','ai-material-actions')
     if(row.remote&&(row.state==='ready'||(row.remote.previewProgress?.completed??0)>0))actions.append(button(row.state==='ready'?'本文':'途中結果・検索対象外',()=>{this.selectedEvidence=row.id;this.evidenceSignature='';void this.loadEvidence(row.id)}))
     if(row.state==='failed'||row.state==='local')actions.append(button('再送',()=>void this.perform(()=>c.retry(row.id))))
-    if(row.state==='ready')actions.append(button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.textarea.focus();void this.perform(()=>c.send('','intro'))}))
+    if(row.state==='ready'){const ask=button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.textarea.focus();void this.perform(()=>c.send('','intro'))});ask.disabled=c.loading||c.sending||!!c.materialWaitReason;ask.title=c.materialWaitReason;actions.append(ask)}
     actions.append(button('削除',()=>{if(confirm(`「${row.title}」を削除しますか？ AIに保存された本文と原本も削除します。`))void this.perform(()=>c.delete(row.id))}))
     card.append(actions);return card
   }
@@ -157,10 +163,10 @@ export class CourseChat {
         if(entry?.file!==file){if(entry)URL.revokeObjectURL(entry.url);entry={file,url:URL.createObjectURL(file)};this.thumbnails.set(row.id,entry)}
         if(image.getAttribute('src')!==entry.url){image.src=entry.url;image.hidden=false;kind.hidden=true}
       }else{image.hidden=true;kind.hidden=false;image.removeAttribute('src')}
-      const percent=c.uploadProgress.get(row.id),label=row.state==='ready'?`✓ ${row.type==='note'?'保存':'アップロード'}・${row.remote?.status==='partial_ready'?'一部解析完了':'解析完了'}`:row.state==='processing'?(awaiting?'アップロード未完了・再送できます':['queued','extracting','indexing'].includes(row.remote?.status??'')?`${row.type==='note'?'保存済み':'✓ アップロード済み'}・解析中`:'送信状況を確認中…'):row.state==='failed'?'送信/解析失敗・再送できます':row.state==='uploading'?(percent===undefined?'送信準備中…':`アップロード中 ${percent}%`):'端末に保存済み・送信待ち'
-      const description=label+(row.state==='ready'&&!c.selected.has(row.id)?'・回答対象外':'')
+      const detail=materialProgress(row,c.uploadProgress.get(row.id)),description=detail.label+(row.state==='ready'&&!c.selected.has(row.id)?'・回答対象外':'')
       if(state.textContent!==description)state.textContent=description
-      progress.hidden=row.state!=='uploading';if(percent===undefined)progress.removeAttribute('value');else progress.value=percent
+      progress.hidden=!detail.progress;progress.max=detail.progress?.max??100;progress.setAttribute('aria-label',detail.progress?.description??'資料の進捗')
+      if(detail.progress?.value===undefined)progress.removeAttribute('value');else progress.value=detail.progress.value
       card.querySelector<HTMLButtonElement>('.ai-attachment-retry')!.hidden=row.state!=='failed'&&!awaiting
       const dismiss=card.querySelector<HTMLButtonElement>('.ai-attachment-dismiss')!;dismiss.hidden=row.state!=='ready';dismiss.textContent=c.selected.has(row.id)?'回答から外す':'表示を閉じる'
     }

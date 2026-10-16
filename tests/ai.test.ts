@@ -41,7 +41,7 @@ test('persistent identities coalesce concurrent tabs and remain isolated per UID
 })
 test('material and conversation persistence separates UID and annual offering; no signed URL persisted',async()=>{
   const store=new AIStore(),backend=new Backend(),uid=crypto.randomUUID(),c=new AIController(uid,context,backend,store,()=>{})
-  await c.init();const row=await c.stageNote('保存して復元する架空本文');await until(()=>row.state==='processing');await c.send('要点は？')
+  await c.init();const row=await c.stageNote('保存して復元する架空本文');await until(()=>row.state==='processing');row.remote!.status='ready';row.state='ready';c.selected.add(row.id);await store.putMaterial(row);await c.send('要点は？')
   const next=new AIController(uid,context,backend,store,()=>{});await next.init();assert.equal(next.messages.length,2);assert(next.materials.some(x=>x.id===row.id))
   assert.equal((await store.materials('different-owner',courseKey(context))).length,0);assert.equal((await store.messages(uid,'2027:00004')).length,0)
   const clean=persistentSource({...row.remote!,upload:{url:'https://storage.googleapis.com/never-persist-signature'}})
@@ -52,11 +52,11 @@ test('failed/interrupted file upload reuses its source receipt and never repeats
   const row=await c.stageFile(new File(['synthetic binary'],'image.png',{type:'image/png'}));await until(()=>row.state==='failed');const id=row.remote!.sourceId
   backend.failUpload=false;await c.retry(row.id);assert.equal(row.remote!.sourceId,id);assert.equal(backend.createIds.length,1);c.dispose()
 })
-test('processing pages are excluded from chat sources and intro cannot use previews',async()=>{
+test('processing pages block chat and intro instead of silently sending without those sources',async()=>{
   const backend=new Backend(),c=new AIController(crypto.randomUUID(),context,backend,new AIStore(),()=>{});await c.init()
   const row=await c.stageNote('架空の途中資料');await until(()=>row.state==='processing');c.selected.add(row.id)
   await assert.rejects(c.send('','intro'));assert.equal(backend.calls.length,0)
-  await c.send('質問');assert.deepEqual(backend.calls[0].sourceIds,[]);c.dispose()
+  await assert.rejects(c.send('質問'),/アップロード・解析の完了後/);assert.equal(backend.calls.length,0);assert.equal(c.messages.length,0);c.dispose()
 })
 test('deleting while create is in flight captures the receipt and deletes before upload',async()=>{
   const backend=new Backend();let release!:()=>void;backend.createWait=new Promise<void>(resolve=>{release=resolve})
