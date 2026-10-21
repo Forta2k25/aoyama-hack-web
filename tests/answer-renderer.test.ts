@@ -34,3 +34,8 @@ test('code blocks/inline code stay literal, escaped dollars are not math; repeat
  const n=render('`$S_n$`\n\n```tex\n$S_n$\n```\n\n価格 \\$5。');assert.equal(n.querySelectorAll('.katex').length,0);assert(n.textContent!.includes('$S_n$'))
  renderAnswer(n,'**保存済み**');const first=n.firstChild;renderAnswer(n,'**保存済み**');assert.equal(n.firstChild,first)
 })
+
+test('exact screenshot syntax renders: inline log and standalone absolute-value inequality',()=>{
+ const n=render('(a)\n無限等比級数が収束する条件は、公比の絶対値が1より小さいことです。\n与えられた和の公比は $r = \\log_2 c$ です。\n\n$$|\\log_2 c| < 1$$\n\nこれを解くと、')
+ assert.equal(n.querySelectorAll('.katex').length,2);assert.equal(n.querySelectorAll('.katex-display').length,1);assert(!n.querySelector('.ai-math-unfinished'));assert(!n.textContent!.includes('$'))
+})

@@ -31,3 +31,12 @@ Official implementation guidance: [Marked extensions](https://marked.js.org/usin
 ## Limits / next review
 
 The model still translates the problem into calculator expressions and drafts explanations. The calculator deterministically checks the supplied expressions/domain; this is not formal verification of all mathematics or proof that the model covered every claim. If review fails or remains inconsistent, the final numeric claim is withheld rather than published confidently. Real provider integration and hosted Web behavior remain unverified until a separately authorized deployment/test. Shared aiChat source may affect both clients once deployed; iOS-specific sources/settings/rendering were not edited.
+
+
+## Composer follow-up (2026-10-21, local)
+
+The existing shared preview still points at deployment dpl_3WXu7GFsj59fhJoTn36CtxdFgxEi; branch auto-deployment is disabled. The preceding Git push did not deploy the new renderer. Its exact screenshot syntax (`$r = \log_2 c$` and `$$|\log_2 c| < 1$$`) is now a regression test.
+
+Added an accessible input-pane toggle: “入力欄を下げる ↓” collapses the form to a bottom bar; “入力欄を開く ↑” restores the textarea, attachments and suggestions. Draft text and attachment selection are preserved. Analysis waiting status and generation cancellation remain available when collapsed. Hidden input cannot submit a draft. Expanded fullscreen textarea starts at two rows rather than three; normal timetable layout is unchanged.
+
+Validation: 75/75 Web tests PASS, build and AI boundary guard PASS. A local fullscreen browser fixture measured the answer viewport increasing from 207px to 502px when collapsing the input (composer 269px to 39px); reopen preserved the draft and attachment. Fixture-only UI, no real provider or Firebase calls. Shared preview deployment was separately authorized after this local validation; no backend/iOS change.

@@ -21,6 +21,9 @@ export class CourseChat {
   private bubbles=new Map<string,HTMLElement>();private initError='';private hasAutoScrolled=false
   private attachments=el('div','ai-composer-attachments');private attachmentCards=new Map<string,HTMLElement>()
   private sendWait=el('p','ai-send-wait')
+  private composerBody=el('div','ai-composer-body');private composerCollapsed=false
+  private composerToggle=button('入力欄を下げる ↓',()=>this.setComposerCollapsed(!this.composerCollapsed),'ai-composer-toggle')
+  private suggestions=el('div','ai-suggestions');private caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。')
   private thumbnails=new Map<string,{file:Blob;url:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
   constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement){this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
@@ -41,10 +44,9 @@ export class CourseChat {
     this.thread.setAttribute('role','log');this.thread.setAttribute('aria-label','AIとの会話');this.thread.setAttribute('aria-live','polite');this.thread.setAttribute('aria-relevant','additions');this.root.append(this.thread)
     const welcome=el('div','ai-welcome');welcome.append(el('div','ai-mark','✦'),el('h3','','この授業の、学びの相棒。'),el('p','','資料を追加して、要約や質問から始めましょう。'),el('small','','授業ごとに会話と資料を保存します。'))
     this.thread.append(welcome)
-    const suggestions=el('div','ai-suggestions')
-    for(const text of ['要点をまとめて','小テストを作って','リアクションペーパーを一緒に考えて'])suggestions.append(button(text,()=>{this.textarea.value=text;this.textarea.focus()},'ai-suggestion'))
-    this.root.append(suggestions)
-    this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=3;this.textarea.setAttribute('aria-label','AIへのメッセージ')
+    for(const text of ['要点をまとめて','小テストを作って','リアクションペーパーを一緒に考えて'])this.suggestions.append(button(text,()=>{this.setComposerCollapsed(false);this.textarea.value=text;this.textarea.focus()},'ai-suggestion'))
+    this.root.append(this.suggestions)
+    this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=2;this.textarea.setAttribute('aria-label','AIへのメッセージ')
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
     const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
     const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept=`${imageFileAccept},application/pdf,audio/mp4,.m4a`;fileInput.hidden=true
@@ -53,13 +55,15 @@ export class CourseChat {
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
     this.attachments.setAttribute('role','list');this.attachments.setAttribute('aria-label','追加した資料とアップロード状況');this.attachments.hidden=true
     this.sendWait.id=`ai-send-wait-${crypto.randomUUID()}`;this.sendWait.setAttribute('role','status');this.sendWait.hidden=true;this.textarea.setAttribute('aria-describedby',this.sendWait.id)
-    tools.append(menu,this.stop,this.send);this.composer.append(this.attachments,this.sendWait,this.textarea,tools,fileInput)
-    this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled)return;const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
+    this.composerBody.id=`ai-composer-body-${crypto.randomUUID()}`;this.composerToggle.setAttribute('aria-controls',this.composerBody.id);this.composerToggle.setAttribute('aria-expanded','true')
+    const composerHeader=el('div','ai-composer-header');composerHeader.append(this.composerToggle,this.stop)
+    tools.append(menu,this.send);this.composerBody.append(this.attachments,this.textarea,tools,fileInput);this.composer.append(composerHeader,this.sendWait,this.composerBody)
+    this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled||this.composerCollapsed)return;const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);menu.open=false})
     this.root.addEventListener('dragover',e=>{e.preventDefault();this.root.classList.add('ai-dragging')})
     this.root.addEventListener('dragleave',()=>this.root.classList.remove('ai-dragging'))
     this.root.addEventListener('drop',e=>{e.preventDefault();this.root.classList.remove('ai-dragging');void this.addFiles([...e.dataTransfer?.files??[]])})
-    const caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。');this.root.append(this.status,this.composer,caption)
+    this.root.append(this.status,this.composer,this.caption)
     try{
       const context=this.context??await resolveContext(this.course,this.store,this.uid),canonical=offeringId(context)
       if(this.disposed)return
@@ -67,6 +71,12 @@ export class CourseChat {
       identity.title=courseKey(context)
       this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render());await this.controller.init();this.render()
     }catch(e){this.initError=safeError(e);this.status.textContent=this.initError}
+  }
+  private setComposerCollapsed(collapsed:boolean){
+    this.composerCollapsed=collapsed;this.composerBody.hidden=collapsed;this.suggestions.hidden=collapsed;this.caption.hidden=collapsed
+    this.composer.classList.toggle('ai-composer--collapsed',collapsed)
+    this.composerToggle.textContent=collapsed?'入力欄を開く ↑':'入力欄を下げる ↓';this.composerToggle.setAttribute('aria-expanded',String(!collapsed))
+    if(!collapsed&&!this.textarea.disabled)this.textarea.focus()
   }
   private openMaterials(){if(this.disposed||this.materialsPanel.open)return;this.materialsButton.setAttribute('aria-expanded','true');this.materialsPanel.showModal()}
   private async perform(action:()=>Promise<unknown>){try{await action()}catch(e){if(!this.disposed)this.status.textContent=safeError(e)}}
@@ -132,7 +142,7 @@ export class CourseChat {
     const actions=el('div','ai-material-actions')
     if(row.remote&&(row.state==='ready'||(row.remote.previewProgress?.completed??0)>0))actions.append(button(row.state==='ready'?'本文':'途中結果・検索対象外',()=>{this.selectedEvidence=row.id;this.evidenceSignature='';void this.loadEvidence(row.id)}))
     if(row.state==='failed'||row.state==='local')actions.append(button('再送',()=>void this.perform(()=>c.retry(row.id))))
-    if(row.state==='ready'){const ask=button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.textarea.focus();void this.perform(()=>c.send('','intro'))});ask.disabled=c.loading||c.sending||!!c.materialWaitReason;ask.title=c.materialWaitReason;actions.append(ask)}
+    if(row.state==='ready'){const ask=button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.setComposerCollapsed(false);void this.perform(()=>c.send('','intro'))});ask.disabled=c.loading||c.sending||!!c.materialWaitReason;ask.title=c.materialWaitReason;actions.append(ask)}
     actions.append(button('削除',()=>{if(confirm(`「${row.title}」を削除しますか？ AIに保存された本文と原本も削除します。`))void this.perform(()=>c.delete(row.id))}))
     card.append(actions);return card
   }

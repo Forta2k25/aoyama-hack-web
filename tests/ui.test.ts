@@ -59,3 +59,19 @@ test('CourseChat renders streamed and final Markdown/math, persists raw answer, 
  root.querySelector<HTMLButtonElement>('.ai-answer-copy')!.click();await new Promise(r=>setTimeout(r,0));assert.equal(copied,answer)
  view.dispose();const reloaded=new CourseAI(root,course,uid,new MathBackend(),store,context);await reloaded.mount();assert(root.querySelector('.ai-message--assistant mfrac'));assert.equal(root.querySelectorAll('.ai-message--assistant .katex').length,3);reloaded.dispose()
 })
+
+test('composer can move down to a compact bar without losing a draft or sending it; reopen restores focus',async()=>{
+ const root=document.getElementById('root')!,backend=new Backend(),view=new CourseAI(root,course,crypto.randomUUID(),backend)
+ await view.mount();const input=root.querySelector('textarea')!,toggle=root.querySelector<HTMLButtonElement>('.ai-composer-toggle')!,body=root.querySelector<HTMLElement>('.ai-composer-body')!
+ input.value='まだ送らない下書き';assert.equal(toggle.getAttribute('aria-expanded'),'true');assert.equal(toggle.getAttribute('aria-controls'),body.id)
+ toggle.click();assert(body.hidden);assert.equal(toggle.getAttribute('aria-expanded'),'false');assert(root.querySelector<HTMLElement>('.ai-suggestions')!.hidden);assert(root.querySelector<HTMLElement>('.ai-composer-caption')!.hidden)
+ root.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,0));assert.equal(backend.calls.length,0);assert.equal(input.value,'まだ送らない下書き')
+ toggle.click();assert(!body.hidden);assert.equal(input.value,'まだ送らない下書き');assert.equal(document.activeElement,input);assert(!root.querySelector<HTMLElement>('.ai-suggestions')!.hidden);assert(!root.querySelector<HTMLElement>('.ai-composer-caption')!.hidden);view.dispose()
+})
+test('compact composer keeps analysis waiting status and generation stop available',async()=>{
+ const root=document.getElementById('root')!,view=new CourseAI(root,course,crypto.randomUUID(),new Backend());await view.mount()
+ const controller=(view as any).controller;controller.sending=true;(view as any).render()
+ root.querySelector<HTMLButtonElement>('.ai-composer-toggle')!.click()
+ const stop=[...root.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='生成を中断')!;assert(!stop.hidden);assert(!stop.closest('.ai-composer-body'));assert(!root.querySelector('.ai-send-wait')!.closest('.ai-composer-body'))
+ controller.sending=false;view.dispose()
+})
