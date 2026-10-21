@@ -1,7 +1,8 @@
+import {receiveChat} from './chat-stream'
 import { validateUpload } from './upload'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { auth } from '../firebase'
-import type { AIBackend, ChatReply, ChatRequest, CourseContext, Evidence, Receipt, RemoteSource, Upload } from './types'
+import type { AIBackend, ChatReply, ChatRequest, ChatProgress, CourseContext, Evidence, Receipt, RemoteSource, Upload } from './types'
 
 const callableNames = new Set(['aiCreateSource','aiCompleteSource','aiRetrySource','aiGetSource','aiListSources','aiGetEvidence','aiDeleteSource','aiChat'])
 export class FirebaseAIBackend implements AIBackend {
@@ -50,16 +51,10 @@ export class FirebaseAIBackend implements AIBackend {
       signal.addEventListener('abort',abort,{once:true});if(signal.aborted){cleanup();reject(signal.reason);return}request.send(file)
     });this.check(signal)
   }
-  async chat(request:ChatRequest,signal:AbortSignal,onDelta:(text:string)=>void):Promise<ChatReply>{
+  async chat(request:ChatRequest,signal:AbortSignal,onDelta:(text:string)=>void,onProgress:(p:ChatProgress)=>void=()=>{}):Promise<ChatReply>{
     this.check(signal)
-    const callable=httpsCallable<ChatRequest,ChatReply,{delta?:string}>(this.functions,'aiChat',{timeout:120000})
-    // Do not silently repeat a billable request if a stream fails after admission.
-    const {stream,data}=await callable.stream(request,{signal})
-    // Attach a rejection handler immediately; the final promise may reject before iteration finishes.
-    const completed=data.then(value=>({value}),error=>({error}))
-    for await(const chunk of stream){this.check(signal);if(typeof chunk.delta==='string')onDelta(chunk.delta)}
-    const final=await completed;if('error'in final)throw final.error;this.check(signal)
-    if(typeof final.value.text!=='string'||!final.value.text.trim())throw Error('WEB_AIの最終返信が契約と一致しません。再送は自動では行いません。')
-    return final.value
+    const callable=httpsCallable<ChatRequest,ChatReply,{delta?:string;protocol?:string;status?:string}>(this.functions,'aiChat',{timeout:120000})
+    const result=await receiveChat(request,signal,text=>{this.check(signal);onDelta(text)},progress=>{this.check(signal);onProgress(progress)},async(data,active)=>{this.check(active);const result=await callable.stream(data,{signal:active});this.check(active);return result},{log:record=>console.info(record)})
+    this.check(signal);return result
   }
 }

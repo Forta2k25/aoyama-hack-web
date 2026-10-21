@@ -1,3 +1,4 @@
+import {ChatStreamError} from './chat-stream'
 import { prepareImageUpload } from './image'
 import { audioDurationSeconds } from './media'
 import { courseKey, offeringId, sessionKey, dateForDayID } from './identity'
@@ -18,6 +19,8 @@ export class AIController {
   readonly key:string;readonly threadKey:string
   readonly uid:string;readonly context:CourseContext;readonly backend:AIBackend;readonly store:AIStore;private readonly changed:()=>void
   constructor(uid:string,context:CourseContext,backend:AIBackend,store:AIStore,changed:()=>void){this.uid=uid;this.context=context;this.backend=backend;this.store=store;this.changed=changed;this.key=courseKey(context);this.threadKey=sessionKey(context)}
+  private streamTimer?:ReturnType<typeof setTimeout>
+  private notifyStream(){if(this.streamTimer===undefined)this.streamTimer=setTimeout(()=>{this.streamTimer=undefined;this.notify()},32)}
   private notify(){if(!this.lifetime.signal.aborted)this.changed()}
   private async save(row:LocalMaterial){await this.store.putMaterial(row);this.notify()}
   get pendingMaterialCount(){return this.preparingMaterials.size+this.materials.filter(row=>!row.wantsDeletion&&['local','uploading','processing'].includes(row.state)).length}
@@ -141,7 +144,7 @@ export class AIController {
     if(sourceIds.length>8)throw Error('WEB_一度に参照できる資料は8件までです。')
     if(mode==='intro'&&!sourceIds.length)throw Error('WEB_解析が完了した資料を選んでください。')
     this.lifetime.signal.throwIfAborted()
-    this.sending=true;this.reply=new AbortController();const reply=this.reply,stop=()=>reply.abort();this.lifetime.signal.addEventListener('abort',stop,{once:true});this.notify()
+    this.sending=true;this.error='';this.reply=new AbortController();const reply=this.reply,stop=()=>reply.abort();this.lifetime.signal.addEventListener('abort',stop,{once:true});this.notify()
     const now=Date.now(),turns=this.messages.filter(x=>x.state==='done').map(x=>({role:x.role,text:x.text.slice(0,2000)}))
     let message:Message|undefined
     try{
@@ -152,16 +155,32 @@ export class AIController {
       message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'assistant',text:'',sourceIds,state:'sending',createdAt:now+1}
       await this.store.putMessage(message);this.messages.push(message);this.notify();reply.signal.throwIfAborted()
       const recent=turns.slice(-12);if(recent[0]?.role==='assistant')recent.shift()
-      const response=await this.backend.chat({context:this.context,courseOfferingId:offeringId(this.context),sourceIds,turns:mode==='intro'?[]:recent,mode},reply.signal,delta=>{message!.text+=delta;this.notify()})
-      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.state='done';return true
+      const request={context:this.context,courseOfferingId:offeringId(this.context),sourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
+      message.resumeRequest=request
+      const response=await this.backend.chat(request,reply.signal,delta=>{message!.text+=delta;this.notifyStream()},progress=>{message!.progress=progress;this.notify()})
+      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.state='done';message.canResume=false;message.progress=undefined;message.error=undefined;return true
     }catch(e){
-      if(message){message.state=reply.signal.aborted?'interrupted':'failed';message.text=message.text||safeError(e)}
-      this.error=safeError(e);return false
+      if(message){message.state=reply.signal.aborted||message.text?'interrupted':'failed';message.canResume=e instanceof ChatStreamError&&e.canResume;message.error=safeError(e instanceof ChatStreamError?e.original:e);message.progress=undefined;message.text=message.text||message.error}
+      this.error=safeError(e instanceof ChatStreamError?e.original:e);return false
     }finally{
-      try{if(message)await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;this.notify()}
+      try{if(message)await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;clearTimeout(this.streamTimer);this.streamTimer=undefined;this.notify()}
     }
   }
 
+  async resume(id:string){
+    if(this.sending||this.loading||this.materialWaitReason)return false
+    const message=this.messages.find(m=>m.id===id&&m.role==='assistant'&&m.canResume&&m.resumeRequest&&m.text.trim())
+    if(!message)return false
+    this.lifetime.signal.throwIfAborted();this.sending=true;this.error='';this.reply=new AbortController();const reply=this.reply,stop=()=>reply.abort();this.lifetime.signal.addEventListener('abort',stop,{once:true})
+    message.state='sending';message.error=undefined;message.canResume=false;this.error='';this.notify()
+    try{
+      const request={...message.resumeRequest!,resume:{protocol:'chat-resume-v1',partial:message.text}}
+      const response=await this.backend.chat(request,reply.signal,delta=>{message.text+=delta;this.notifyStream()},progress=>{message.progress=progress;this.notify()})
+      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.state='done';message.progress=undefined;return true
+    }catch(e){message.state='interrupted';message.canResume=e instanceof ChatStreamError&&e.canResume;message.error=safeError(e instanceof ChatStreamError?e.original:e);message.progress=undefined;return false}
+    finally{try{await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;clearTimeout(this.streamTimer);this.streamTimer=undefined;this.notify()}}
+  }
+
   stop(){this.reply?.abort()}
-  dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer)}
+  dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer);clearTimeout(this.streamTimer)}
 }

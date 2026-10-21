@@ -29,7 +29,8 @@ export interface Evidence {
 export interface Upload { url: string; headers?: Record<string, string> }
 export interface Receipt extends RemoteSource { upload?: Upload }
 export interface ChatTurn { role: 'user' | 'assistant'; text: string }
-export interface ChatRequest { context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
+export interface ChatProgress {status:'generating'|'continuing'|'retrying';supported?:boolean;retryCount?:number;continuationCount?:number}
+export interface ChatRequest { streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
 export interface ChatReply { text: string; recognition?: Recognition }
 export interface AIBackend {
   readonly demo: boolean
@@ -41,7 +42,7 @@ export interface AIBackend {
   evidence(sourceId: string, preview: boolean, signal: AbortSignal): Promise<Evidence>
   delete(sourceId: string, signal: AbortSignal): Promise<void>
   upload(upload: Upload, file: Blob, signal: AbortSignal, progress: (percent: number) => void): Promise<void>
-  chat(request: ChatRequest, signal: AbortSignal, delta: (text: string) => void): Promise<ChatReply>
+  chat(request: ChatRequest, signal: AbortSignal, delta: (text: string) => void, progress?: (p:ChatProgress)=>void): Promise<ChatReply>
 }
 export interface LocalMaterial {
   id: string; uid: string; courseKey: string; context: CourseContext; clientRequestId: string
@@ -51,5 +52,5 @@ export interface LocalMaterial {
 }
 export interface Message {
   id: string; uid: string; courseKey: string; role: 'user' | 'assistant'; text: string
-  sessionKey?: string; sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
+  sessionKey?: string; progress?:ChatProgress;error?:string;canResume?:boolean;resumeRequest?:ChatRequest;sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
 }

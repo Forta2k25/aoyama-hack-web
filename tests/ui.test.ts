@@ -75,3 +75,13 @@ test('compact composer keeps analysis waiting status and generation stop availab
  const stop=[...root.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='生成を中断')!;assert(!stop.hidden);assert(!stop.closest('.ai-composer-body'));assert(!root.querySelector('.ai-send-wait')!.closest('.ai-composer-body'))
  controller.sending=false;view.dispose()
 })
+
+test('interrupted answer keeps Markdown/math, shows a resume action and completes (h) in the same bubble',async()=>{
+ const {ChatStreamError}=await import('../src/ai/chat-stream.ts')
+ class RecoveryBackend extends DemoAIBackend {calls=0;override async chat(r:ChatRequest,_s:AbortSignal,delta:(s:string)=>void,progress?:(p:any)=>void){this.calls++;if(this.calls===1){progress?.({status:'retrying',supported:true});delta('### (g)\n\n$D=4(Z^2-1)$\n\n');throw new ChatStreamError(Object.assign(Error('reset'),{code:'functions/unavailable'}),true,r)}delta('### (h)\n\n条件付き確率は約 $0.167$。');return {text:'### (g)\n\n$D=4(Z^2-1)$\n\n### (h)\n\n条件付き確率は約 $0.167$。'}}}
+ const root=document.getElementById('root')!,view=new CourseAI(root,course,crypto.randomUUID(),new RecoveryBackend());await view.mount();root.querySelector('textarea')!.value='最後まで説明して';root.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{cancelable:true}));
+ for(let i=0;i<100&&(!root.querySelector('.ai-answer-resume')||root.querySelector<HTMLButtonElement>('.ai-answer-resume')!.hidden);i++)await new Promise(r=>setTimeout(r,3))
+ assert(root.textContent!.includes('回答が途中で中断'));assert(!root.textContent!.includes('送信に失敗しました。再送は自動で行いません。'));assert(root.querySelector('.ai-message--assistant .katex'));const button=root.querySelector<HTMLButtonElement>('.ai-answer-resume')!;assert(!button.hidden);button.click();
+ for(let i=0;i<100&&root.querySelector('.ai-message--assistant h3')?.textContent!=='(h)'&&!root.textContent!.includes('条件付き確率');i++)await new Promise(r=>setTimeout(r,3))
+ assert.equal(root.querySelectorAll('.ai-message--assistant').length,1);assert.equal(root.querySelectorAll('.ai-message--user').length,1);assert(root.textContent!.includes('条件付き確率'));view.dispose()
+})
