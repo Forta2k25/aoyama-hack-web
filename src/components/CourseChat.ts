@@ -1,6 +1,7 @@
 import type { Course } from '../timetable'
 import { imageFileAccept, isHEIC } from '../ai/image'
 import { copyAnswer, shareAnswer } from '../ai/answer-actions'
+import { renderAnswer } from '../ai/answer-renderer'
 import { materialProgress } from '../ai/material-progress'
 import { AIController } from '../ai/controller'
 import { AIStore } from '../ai/store'
@@ -177,7 +178,9 @@ export class CourseChat {
   private message(message:Message){
     let bubble=this.bubbles.get(message.id)
     if(!bubble){bubble=el('article',`ai-message ai-message--${message.role}`);bubble.append(el('p','ai-message-role',message.role==='assistant'?'✦ AIハック':'あなた'),el('div','ai-message-text'),el('small','ai-message-state'));this.thread.append(bubble);this.bubbles.set(message.id,bubble)}
-    bubble.querySelector('.ai-message-text')!.textContent=message.text||(message.state==='sending'?'考えています…':'')
+    const body=bubble.querySelector<HTMLElement>('.ai-message-text')!,text=message.text||(message.state==='sending'?'考えています…':'')
+    if(message.role==='assistant')renderAnswer(body,text)
+    else body.textContent=text
     bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?'返信中…':message.state==='failed'?'送信に失敗しました。再送は自動で行いません。':message.state==='interrupted'?'中断した返信（未完了）':message.recognition?metadataText(message.recognition):''
     if(message.role==='assistant'){
       let actions=bubble.querySelector<HTMLElement>('.ai-message-actions')

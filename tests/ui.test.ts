@@ -16,7 +16,7 @@ class Backend extends DemoAIBackend {
   calls:ChatRequest[]=[]
   override async chat(r:ChatRequest,_s:AbortSignal,delta:(x:string)=>void){this.calls.push(r);delta('<script>alert("no")</script>');return {text:'<img src=x onerror=alert(1)>\nQwenの最終返信'}}
 }
-test('composer renders streaming/final content as text, preserves tabs and never executes AI HTML',async()=>{
+test('composer escapes streaming/final raw HTML, preserves tabs and never executes AI HTML',async()=>{
   const root=document.getElementById('root')!,backend=new Backend(),view=new CourseAI(root,course,crypto.randomUUID(),backend)
   await view.mount();const input=root.querySelector('textarea')!;input.value='要約して';root.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}))
   for(let i=0;i<50&&!root.textContent!.includes('Qwenの最終返信');i++)await new Promise(r=>setTimeout(r,5))
@@ -45,4 +45,17 @@ test('header materials button opens an isolated drawer, keeps selection and evid
   for(let i=0;i<100&&!panel.textContent!.includes('資料の本文確認');i++)await new Promise(r=>setTimeout(r,3))
   assert(panel.textContent!.includes('資料の本文確認'));assert(!root.querySelector('.ai-thread')!.textContent!.includes('資料の本文確認'))
   view.dispose();assert(!panel.isConnected);assert(!toolbar.children.length);toolbar.remove()
+})
+
+test('CourseChat renders streamed and final Markdown/math, persists raw answer, reloads it, and copies it unchanged',async()=>{
+ const answer='### (b) の答え\n\n**答え：$n=9$**\n\n公比は $r=\\log_2(1.5)$ です。\n\n$$\\frac{5r^n}{1-r}<0.1$$\n\n- n=8: 約0.16516\n- n=9: 約0.09661'
+ class MathBackend extends DemoAIBackend {override async chat(_r:ChatRequest,_s:AbortSignal,delta:(x:string)=>void){for(const ch of answer)delta(ch);return {text:answer}}}
+ const uid=crypto.randomUUID(),store=new AIStore(),context=makeContext(course,crypto.randomUUID()),root=document.getElementById('root')!,view=new CourseAI(root,course,uid,new MathBackend(),store,context)
+ let copied='';Object.defineProperty(globalThis,'navigator',{value:{clipboard:{writeText:async(text:string)=>{copied=text}}},configurable:true})
+ await view.mount();root.querySelector('textarea')!.value='最小のnを求めて';root.querySelector('form')!.dispatchEvent(new dom.window.Event('submit',{cancelable:true}))
+ for(let i=0;i<100&&!root.querySelector('.ai-answer-copy');i++)await new Promise(r=>setTimeout(r,3))
+ for(let i=0;i<100&&root.querySelector('.ai-message-actions')?.hasAttribute('hidden');i++)await new Promise(r=>setTimeout(r,3))
+ assert.equal(root.querySelector('.ai-message--assistant h3')?.textContent,'(b) の答え');assert(root.querySelector('.ai-message--assistant strong .katex'));assert.equal(root.querySelectorAll('.ai-message--assistant .katex').length,3)
+ root.querySelector<HTMLButtonElement>('.ai-answer-copy')!.click();await new Promise(r=>setTimeout(r,0));assert.equal(copied,answer)
+ view.dispose();const reloaded=new CourseAI(root,course,uid,new MathBackend(),store,context);await reloaded.mount();assert(root.querySelector('.ai-message--assistant mfrac'));assert.equal(root.querySelectorAll('.ai-message--assistant .katex').length,3);reloaded.dispose()
 })

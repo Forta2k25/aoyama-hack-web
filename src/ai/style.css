@@ -185,3 +185,22 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
  .ai-attachment-card { flex-basis:200px }
  .ai-message-actions .ai-small-button { min-height:36px }
 }
+
+/* Assistant answers only: leave user text, timetable and other site typography alone. */
+.web-ai .ai-answer-markdown { white-space:normal }
+.web-ai .ai-answer-markdown > :first-child { margin-top:0 }
+.web-ai .ai-answer-markdown > :last-child { margin-bottom:0 }
+.web-ai .ai-answer-markdown p { margin:.7em 0;line-height:inherit }
+.web-ai .ai-answer-markdown :is(h1,h2,h3,h4,h5,h6) { font-size:1.1em;line-height:1.5;margin:1.1em 0 .45em;color:inherit }
+.web-ai .ai-answer-markdown :is(ul,ol) { padding-left:1.5em;margin:.6em 0 }
+.web-ai .ai-answer-markdown li { margin:.3em 0 }
+.web-ai .ai-answer-markdown pre { white-space:pre;overflow-x:auto;padding:12px;background:#edf4f0;border-radius:8px;max-width:100% }
+.web-ai .ai-answer-markdown code { font-size:.9em }
+.web-ai .ai-answer-markdown blockquote { margin:.7em 0;padding-left:12px;border-left:3px solid #b9d7c9 }
+.web-ai .ai-answer-markdown table { display:block;overflow-x:auto;border-collapse:collapse;max-width:100% }
+.web-ai .ai-answer-markdown :is(td,th) { border:1px solid #d6e6de;padding:5px 9px }
+.web-ai .ai-answer-markdown a { color:#24765f;text-decoration:underline }
+.web-ai .ai-math-display { display:block;max-width:100%;overflow-x:auto;overflow-y:hidden;padding:4px 0 }
+.web-ai .ai-math-display .katex-display { margin:.5em 0;text-align:left }
+.web-ai .ai-math-inline .katex { font-size:1.08em }
+.web-ai .ai-math-unfinished { white-space:pre-wrap;overflow-wrap:anywhere }
