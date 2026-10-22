@@ -1,3 +1,4 @@
+import type {ChatSyllabus} from '../ai/syllabus'
 import type { Course } from '../timetable'
 import { imageFileAccept, isHEIC } from '../ai/image'
 import { copyAnswer, shareAnswer } from '../ai/answer-actions'
@@ -21,12 +22,13 @@ export class CourseChat {
   private bubbles=new Map<string,HTMLElement>();private initError='';private hasAutoScrolled=false
   private attachments=el('div','ai-composer-attachments');private attachmentCards=new Map<string,HTMLElement>()
   private sendWait=el('p','ai-send-wait')
+  private syllabusNotice=el('p','ai-course-identity');private syllabus?:Promise<ChatSyllabus>
   private composerBody=el('div','ai-composer-body');private composerCollapsed=false
   private composerToggle=button('入力欄を下げる ↓',()=>this.setComposerCollapsed(!this.composerCollapsed),'ai-composer-toggle')
   private suggestions=el('div','ai-suggestions');private caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。')
   private thumbnails=new Map<string,{file:Blob;url:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
-  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement){this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
+  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement,syllabus?:Promise<ChatSyllabus>){this.syllabus=syllabus;this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
     this.root.replaceChildren();this.root.classList.add('web-ai')
     this.notice.textContent=this.backend.demo?'デバッグ専用・架空の応答です。Firebase／外部AIへは送信しません。':'本番接続 · forta-aogaku · 自分の資料のみ。利用には既存pilotの許可が必要です。'
@@ -69,7 +71,12 @@ export class CourseChat {
       if(this.disposed)return
       identity.textContent=canonical?`${canonical} · ${context.semester==='fall'?'後期':context.semester==='spring'?'前期':'学期未確定'}`:context.year?`${context.year}年度・授業ID未確定（端末の授業IDで保持）`:'授業年度未確定（現在年では補完しません）'
       identity.title=courseKey(context)
-      this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render());await this.controller.init();this.render()
+      if(this.syllabus){this.syllabusNotice.textContent='シラバスを確認しています…';this.syllabusNotice.setAttribute('role','status');identity.after(this.syllabusNotice)}
+      const reference=await (this.syllabus??Promise.resolve({status:'absent' as const,text:''})).catch(()=>({status:'unavailable' as const,text:''}))
+      if(this.disposed)return
+      this.syllabusNotice.hidden=reference.status==='absent'
+      this.syllabusNotice.textContent=reference.status==='ready'?'この授業のシラバスを回答の参照情報に含めています。':'シラバスを取得できなかったため、今回は含めません。授業を開き直すと再確認します。'
+      this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render(),reference.text);await this.controller.init();this.render()
     }catch(e){this.initError=safeError(e);this.status.textContent=this.initError}
   }
   private setComposerCollapsed(collapsed:boolean){

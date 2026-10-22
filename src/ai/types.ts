@@ -30,7 +30,7 @@ export interface Upload { url: string; headers?: Record<string, string> }
 export interface Receipt extends RemoteSource { upload?: Upload }
 export interface ChatTurn { role: 'user' | 'assistant'; text: string }
 export interface ChatProgress {status:'generating'|'continuing'|'retrying';supported?:boolean;retryCount?:number;continuationCount?:number}
-export interface ChatRequest { streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
+export interface ChatRequest { syllabus?:string;streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
 export interface ChatReply { text: string; recognition?: Recognition }
 export interface AIBackend {
   readonly demo: boolean

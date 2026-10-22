@@ -1,10 +1,11 @@
+import {loadCourseSyllabus} from '../ai/syllabus'
 import {lectureSchedule} from '../ai/calendar'
 import {makeContext} from '../ai/identity'
 import { webAIEnabled } from '../ai/access'
 import { CourseAI } from './CourseAI'
 import { type AuthUser } from '../auth'
 import { fetchTimetable, fetchCourseDetail, fetchFriends, termLabel, slotColor, dayName, type TimetableSlot, type Friend } from '../timetable'
-import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../syllabus'
+import { type SyllabusContent, type EvalItem } from '../syllabus'
 import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
@@ -376,6 +377,11 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
   let activeTab: 'syllabus' | 'ai'='syllabus', aiHost: HTMLElement | undefined, mounted=false
   const available=allowAI&&webAIEnabled()
   const detailPromise=fetchCourseDetail(course)
+  // The display and every lecture chat share this course-bound request, including early AI-tab clicks.
+  const syllabusPromise=detailPromise.then(value=>{
+    if(ticket!==_courseRequest)return {status:'absent' as const}
+    detail=value;return loadCourseSyllabus(course.syllabusURL||value.syllabusURL)
+  },()=>ticket===_courseRequest?loadCourseSyllabus(course.syllabusURL):{status:'absent' as const})
   const shell=document.createElement('div'),syllabusHost=document.createElement('div')
   const tabs=document.createElement('div');tabs.className='course-detail-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','授業の詳細')
   const buttons:HTMLButtonElement[]=[]
@@ -393,7 +399,7 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
         const {FirebaseAIBackend}=await import('../ai/backend')
         if(ticket!==_courseRequest)return
         const resolved={...course,teachingTerm:resolvedDetail?.term,syllabusURL:course.syllabusURL||resolvedDetail?.syllabusURL,semester:course.semester ?? (resolvedDetail?.term?.includes('前期')?'spring':resolvedDetail?.term?.includes('後期')?'fall':undefined)}
-        _activeAI=new CourseAI(aiHost,resolved,user.uid,new FirebaseAIBackend(user.uid));await _activeAI.mount()
+        _activeAI=new CourseAI(aiHost,resolved,user.uid,new FirebaseAIBackend(user.uid),undefined,syllabusPromise);await _activeAI.mount()
       })().catch(()=>{if(ticket===_courseRequest&&aiHost)aiHost.textContent='AIハックの準備に失敗しました。授業を開き直してください。'})
     }
   }
@@ -416,11 +422,10 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
   }else{
     panel.hidden=false;document.body.classList.add('modal-open');panel.querySelector<HTMLElement>('.course-modal-close')?.focus({preventScroll:true})
   }
-  detailPromise.then(async value=>{
+  void syllabusPromise.then(reference=>{
     if(ticket!==_courseRequest)return
-    detail=value;syllabus=await fetchAndParseSyllabus(course.syllabusURL||value.syllabusURL||'')
-    if(ticket===_courseRequest)updateSyllabus(false)
-  }).catch(()=>{if(ticket===_courseRequest){syllabus=null;updateSyllabus(false)}})
+    syllabus=reference.content??null;updateSyllabus(false)
+  })
 }
 
 export function closeCourseModal() {

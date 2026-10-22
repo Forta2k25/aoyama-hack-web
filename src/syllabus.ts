@@ -128,14 +128,15 @@ export function parseSyllabusHTML(html: string): SyllabusContent {
 
 // Netlify Function 経由でシラバスHTMLを取得しパース
 export async function fetchAndParseSyllabus(syllabusURL: string): Promise<SyllabusContent | null> {
-  if (!syllabusURL || !syllabusURL.includes('syllabus.aoyama.ac.jp')) return null
+  try { const url = new URL(syllabusURL); if (!['http:', 'https:'].includes(url.protocol) || url.hostname !== 'syllabus.aoyama.ac.jp' || url.username || url.password || url.port) return null } catch { return null }
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 12000)
   try {
     const proxyURL = `/api/syllabus?url=${encodeURIComponent(syllabusURL)}`
-    const res = await fetch(proxyURL)
+    const res = await fetch(proxyURL, {signal: controller.signal})
     if (!res.ok) return null
     const html = await res.text()
     return parseSyllabusHTML(html)
   } catch {
     return null
-  }
+  } finally { clearTimeout(timeout) }
 }

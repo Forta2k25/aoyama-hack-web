@@ -1,3 +1,4 @@
+import {syllabusContextLimit} from './syllabus'
 import {ChatStreamError} from './chat-stream'
 import { prepareImageUpload } from './image'
 import { audioDurationSeconds } from './media'
@@ -17,8 +18,8 @@ export class AIController {
   private preparingMaterials=new Set<symbol>()
   private requests=new Map<string,AbortController>(); private timer?:ReturnType<typeof setTimeout>; private polls=0
   readonly key:string;readonly threadKey:string
-  readonly uid:string;readonly context:CourseContext;readonly backend:AIBackend;readonly store:AIStore;private readonly changed:()=>void
-  constructor(uid:string,context:CourseContext,backend:AIBackend,store:AIStore,changed:()=>void){this.uid=uid;this.context=context;this.backend=backend;this.store=store;this.changed=changed;this.key=courseKey(context);this.threadKey=sessionKey(context)}
+  readonly uid:string;readonly context:CourseContext;readonly backend:AIBackend;readonly store:AIStore;private readonly changed:()=>void;private readonly syllabus:string
+  constructor(uid:string,context:CourseContext,backend:AIBackend,store:AIStore,changed:()=>void,syllabus=''){this.syllabus=syllabus.slice(0,syllabusContextLimit);this.uid=uid;this.context=context;this.backend=backend;this.store=store;this.changed=changed;this.key=courseKey(context);this.threadKey=sessionKey(context)}
   private streamTimer?:ReturnType<typeof setTimeout>
   private notifyStream(){if(this.streamTimer===undefined)this.streamTimer=setTimeout(()=>{this.streamTimer=undefined;this.notify()},32)}
   private notify(){if(!this.lifetime.signal.aborted)this.changed()}
@@ -155,7 +156,7 @@ export class AIController {
       message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'assistant',text:'',sourceIds,state:'sending',createdAt:now+1}
       await this.store.putMessage(message);this.messages.push(message);this.notify();reply.signal.throwIfAborted()
       const recent=turns.slice(-12);if(recent[0]?.role==='assistant')recent.shift()
-      const request={context:this.context,courseOfferingId:offeringId(this.context),sourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
+      const request={...(this.syllabus?{syllabus:this.syllabus}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
       message.resumeRequest=request
       const response=await this.backend.chat(request,reply.signal,delta=>{message!.text+=delta;this.notifyStream()},progress=>{message!.progress=progress;this.notify()})
       reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.state='done';message.canResume=false;message.progress=undefined;message.error=undefined;return true

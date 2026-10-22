@@ -1,3 +1,4 @@
+import {loadCourseSyllabus,chatSyllabus,type CourseSyllabus} from '../ai/syllabus'
 import type {Course} from '../timetable'
 import type {AIBackend,CourseContext,Message,LocalMaterial} from '../ai/types'
 import {AIStore} from '../ai/store'
@@ -9,8 +10,9 @@ const node=<K extends keyof HTMLElementTagNameMap>(tag:K,cls='',text?:string)=>{
 const dateLabel=(date:string)=>new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(date+'T00:00:00+09:00'))
 export class CourseAI {
  private disposed=false;private viewTicket=0;private chat?:CourseChat;private context?:CourseContext;private settings:LectureSettings={};private legacy:Message[]=[];private legacyMaterials:LocalMaterial[]=[];private lifetime=new AbortController();private screen?:HTMLDialogElement;private returnFocusDay?:number
+ private syllabus:Promise<CourseSyllabus>
  private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore
- constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore()){this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
+ constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),syllabus?:Promise<CourseSyllabus>){this.syllabus=syllabus??(backend.demo?Promise.resolve({status:'absent'}):loadCourseSyllabus(course.syllabusURL));this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
  async mount(){
   this.root.replaceChildren(node('p','','授業ごとの履歴を確認しています…'));this.root.classList.add('web-ai')
   try{
@@ -60,7 +62,7 @@ export class CourseAI {
   back.type='button';back.addEventListener('click',()=>void this.showList());titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
   this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(this.screen===screen&&!this.disposed)void this.showList()})
   document.body.classList.add('ai-chat-open');screen.showModal()
-  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions);await this.chat.mount()
+  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions,this.syllabus.then(reference=>chatSyllabus(reference,this.course,meeting.number)));await this.chat.mount()
  }
  private settingsForm(){
   const details=node('details','ai-schedule-settings'),summary=node('summary','','授業日程を調整'),form=node('form'),first=node('input'),campus=node('select'),skip=node('textarea'),status=node('p','ai-status')
