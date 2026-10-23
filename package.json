@@ -8,7 +8,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "dev:ai": "vite --host 127.0.0.1 --mode ai-preview",
+    "dev:student": "vite --host localhost --port 5178 --strictPort --mode student-preview",
     "build:ai-preview": "tsc && vite build --mode ai-preview",
+    "build:student-preview": "tsc && vite build --mode student-preview --outDir dist-student",
     "test": "node --experimental-test-module-mocks --import tsx --test tests/*.test.ts",
     "check:ai-boundaries": "node scripts/check-ai-boundaries.mjs",
     "check:ai-live-anonymous": "node scripts/check-ai-live-anonymous.mjs"

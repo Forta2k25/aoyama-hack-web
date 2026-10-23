@@ -12,7 +12,7 @@ export interface Recognition {
 }
 export interface RemoteSource {
   sourceId: string; sourceType: SourceKind; title: string; status: SourceStatus; courseOfferingId: string
-  lectureId?: string; pipelineVersion?: string; activeVersion?: string | null; previewVersion?: string | null
+  dayID?: number; lectureId?: string; pipelineVersion?: string; activeVersion?: string | null; previewVersion?: string | null
   previewProgress?: { completed: number; total: number }; recognition?: Recognition | null
   latency?: Record<string, unknown> | null; error?: { code: string; retryable: boolean } | null
 }
@@ -30,10 +30,14 @@ export interface Upload { url: string; headers?: Record<string, string> }
 export interface Receipt extends RemoteSource { upload?: Upload }
 export interface ChatTurn { role: 'user' | 'assistant'; text: string }
 export interface ChatProgress {status:'generating'|'continuing'|'retrying';supported?:boolean;retryCount?:number;continuationCount?:number}
-export interface ChatRequest { syllabus?:string;streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
-export interface ChatReply { text: string; recognition?: Recognition }
+export interface ProjectScope {protocol:'course-project-v1';mode:'course'|'lectures';dayIDs?:number[]}
+export interface ProjectReferences {protocol:'course-project-v1';courseOfferingId:string;scope:ProjectScope;targetSources:number;readySources:number;processingSources:number;failedSources:number;partialSources:number;changedSources:number;noTextSources:number;excerpted:boolean;characters:number;sources:{sourceId:string;title:string;dayID?:number;lectureId?:string;partial:boolean;locators:Record<string,number>[];excerpted:boolean}[]}
+export interface ChatRequest { referenceScope?:ProjectScope;syllabus?:string;streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
+export interface ChatReply { text: string; recognition?: Recognition; references?:ProjectReferences }
 export interface AIBackend {
   readonly demo: boolean
+  readonly projectContextProtocol?:string
+  readonly resolvedCourseOfferingId?:string
   create(data: { clientRequestId: string; type: SourceKind; title: string; mime: string; size: number; text?: string; durationSeconds?: number; context: CourseContext }, signal: AbortSignal): Promise<Receipt>
   complete(sourceId: string, uploadMs: number | undefined, signal: AbortSignal): Promise<RemoteSource>
   retry(sourceId: string, signal: AbortSignal): Promise<Receipt>
@@ -52,5 +56,5 @@ export interface LocalMaterial {
 }
 export interface Message {
   id: string; uid: string; courseKey: string; role: 'user' | 'assistant'; text: string
-  sessionKey?: string; progress?:ChatProgress;error?:string;canResume?:boolean;resumeRequest?:ChatRequest;sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
+  sessionKey?: string; references?:ProjectReferences;progress?:ChatProgress;error?:string;canResume?:boolean;resumeRequest?:ChatRequest;sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
 }

@@ -32,7 +32,7 @@ export class CourseAI {
   const context=this.context!,key=courseKey(context),[messages,materials]=await Promise.all([this.store.messages(this.uid,key),this.store.materials(this.uid,key)])
   if(this.disposed||ticket!==this.viewTicket)return
   const schedule=lectureSchedule(this.course,context,this.settings)
-  const title=node('h3','ai-course-title',this.course.title),intro=node('p','ai-session-intro','授業回ごとに資料とチャットを保存します。'),notice=node('p','ai-session-note',schedule.notice),list=node('div','ai-lecture-list')
+  const title=node('h3','ai-course-title',this.course.title),intro=node('p','ai-session-intro','資料はこの授業の共通資料庫へ、会話は授業回ごとに保存します。試験対策ではチャット内で参照範囲を広げられます。'),notice=node('p','ai-session-note',schedule.notice),list=node('div','ai-lecture-list')
   if(schedule.official){const link=node('a','ai-calendar-link','学事暦を確認 ↗');link.href=calendarSource;link.target='_blank';link.rel='noopener noreferrer';notice.append(' ',link)}
   for(const meeting of schedule.meetings){
    const thread=sessionKey({...context,dayID:meeting.dayID}),history=messages.filter(x=>x.sessionKey===thread),sources=materials.filter(x=>x.sessionKey===thread)
@@ -62,7 +62,7 @@ export class CourseAI {
   back.type='button';back.addEventListener('click',()=>void this.showList());titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
   this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(this.screen===screen&&!this.disposed)void this.showList()})
   document.body.classList.add('ai-chat-open');screen.showModal()
-  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions,this.syllabus.then(reference=>chatSyllabus(reference,this.course,meeting.number)));await this.chat.mount()
+  this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions,this.syllabus.then(reference=>chatSyllabus(reference,this.course,meeting.number)),lectureSchedule(this.course,this.context!,this.settings).meetings);await this.chat.mount()
  }
  private settingsForm(){
   const details=node('details','ai-schedule-settings'),summary=node('summary','','授業日程を調整'),form=node('form'),first=node('input'),campus=node('select'),skip=node('textarea'),status=node('p','ai-status')

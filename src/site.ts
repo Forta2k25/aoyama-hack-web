@@ -3,6 +3,7 @@ import { getSiteLayoutMarkup } from './components/SiteLayout'
 import { SITE_SHELL_ID, splashMarkup, startSplashTransition } from './components/SplashScreen'
 import { onUserChange, signInWithGoogle, signOutUser } from './auth'
 import { renderMyPage } from './components/MyPage'
+import { myPageDestination } from './student-routing'
 
 const pathname = window.location.pathname
 const shouldShowSplash = pathname === '/'
@@ -380,7 +381,7 @@ onUserChange((user) => {
     renderMyPage(user).then(() => {
       document.getElementById('mypage-signin-btn')?.addEventListener('click', () => {
         signInWithGoogle()
-          .then(() => { window.location.href = '/mypage' })
+          .then(() => { window.location.href = myPageDestination(location.hash) })
           .catch(() => { window.alert('ログインに失敗しました。もう一度お試しください。') })
       })
       document.getElementById('mypage-signout-btn')?.addEventListener('click', () => {

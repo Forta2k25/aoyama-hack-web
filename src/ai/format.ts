@@ -50,6 +50,9 @@ export function safeError(error: unknown): string {
   if (/resource-exhausted|RATE_LIMIT|QUOTA/.test(code)) return '利用上限または一時的な混雑です。時間を置いて再試行してください。'
   if (error instanceof Error && error.name === 'AbortError') return '中断しました。資料は再送できます。'
   if (error instanceof Error && error.message.startsWith('WEB_')) return error.message.slice(4)
+  if (/PROJECT_SCOPE_TOO_LARGE/.test(code)) return '参照する資料が多いため、授業回の範囲を絞ってください。対象を勝手に省略せず停止しました。'
+  if (/PROJECT_NO_READY_MATERIAL/.test(code)) return '選んだ授業回の範囲に、参照できる解析完了の資料がありません。'
+  if (/PROJECT_COURSE_MISMATCH/.test(code)) return '資料の授業識別情報が一致しません。時間割から授業を開き直してください。'
   const diagnostic=typeof code==='string'&&code.length<=64&&(/^(?:AI_|INVALID_|UNSUPPORTED_|UPLOAD_|PROVIDER_|AUDIO_|SOURCE_|STORAGE_|INPUT_|PDF_|IMAGE_|DURATION_|MIME_)[A-Z0-9_]+$/.test(code)||/^(?:functions\/)?(?:invalid-argument|permission-denied|internal|unavailable|deadline-exceeded|failed-precondition|unknown)$/.test(code))?`（${code}）`:''
   return `処理に失敗しました。接続を確認して再試行してください。${diagnostic}`
 }

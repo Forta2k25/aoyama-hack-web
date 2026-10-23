@@ -7,6 +7,8 @@ import type { AIBackend, ChatReply, ChatRequest, ChatProgress, CourseContext, Ev
 const callableNames = new Set(['aiCreateSource','aiCompleteSource','aiRetrySource','aiGetSource','aiListSources','aiGetEvidence','aiDeleteSource','aiChat'])
 export class FirebaseAIBackend implements AIBackend {
   readonly demo=false
+  projectContextProtocol?:string
+  resolvedCourseOfferingId?:string
   private readonly functions=getFunctions(auth.app,'asia-northeast1')
   private readonly uid:string
   constructor(uid:string) {this.uid=uid}
@@ -22,7 +24,12 @@ export class FirebaseAIBackend implements AIBackend {
   get(sourceId:string,signal:AbortSignal){return this.call<RemoteSource>('aiGetSource',{sourceId},signal)}
   async list(context:CourseContext,signal:AbortSignal){
     const items:RemoteSource[]=[];let after:string|undefined;const seen=new Set<string>()
-    do{const p=await this.call<{items:RemoteSource[];nextCursor?:string}>('aiListSources',{context,...(after?{after}:{})},signal);items.push(...p.items);after=p.nextCursor;if(after){if(seen.has(after)||seen.size>=100)throw Error('WEB_資料一覧が多いため読み込みを停止しました。');seen.add(after)}}while(after)
+    this.projectContextProtocol=undefined;this.resolvedCourseOfferingId=undefined
+    do{const p=await this.call<{items:RemoteSource[];courseOfferingId?:string;inputCapabilities?:{courseProject?:{protocol?:string}};nextCursor?:string}>('aiListSources',{context,ownOnly:true,...(after?{after}:{})},signal)
+      if(this.resolvedCourseOfferingId&&p.courseOfferingId!==this.resolvedCourseOfferingId)throw Error('WEB_資料一覧の授業が途中で変わりました。開き直してください。')
+      this.resolvedCourseOfferingId=p.courseOfferingId
+      if(p.inputCapabilities?.courseProject?.protocol==='course-project-v1')this.projectContextProtocol='course-project-v1'
+      items.push(...p.items);after=p.nextCursor;if(after){if(seen.has(after)||seen.size>=100)throw Error('WEB_資料一覧が多いため読み込みを停止しました。');seen.add(after)}}while(after)
     return items
   }
   async evidence(sourceId:string,preview:boolean,signal:AbortSignal){
@@ -53,8 +60,11 @@ export class FirebaseAIBackend implements AIBackend {
   }
   async chat(request:ChatRequest,signal:AbortSignal,onDelta:(text:string)=>void,onProgress:(p:ChatProgress)=>void=()=>{}):Promise<ChatReply>{
     this.check(signal)
+    if(request.referenceScope&&this.projectContextProtocol!=='course-project-v1')throw Error('WEB_授業横断の参照には対応backendの更新が必要です。')
     const callable=httpsCallable<ChatRequest,ChatReply,{delta?:string;protocol?:string;status?:string}>(this.functions,'aiChat',{timeout:120000})
-    const result=await receiveChat(request,signal,text=>{this.check(signal);onDelta(text)},progress=>{this.check(signal);onProgress(progress)},async(data,active)=>{this.check(active);const result=await callable.stream(data,{signal:active});this.check(active);return result},{log:record=>console.info(record)})
+    // A mixed/old backend must not silently answer without the project materials. Verify the final acknowledgement before showing project text.
+    const result=await receiveChat(request,signal,text=>{this.check(signal);if(!request.referenceScope)onDelta(text)},progress=>{this.check(signal);onProgress(progress)},async(data,active)=>{this.check(active);const result=await callable.stream(data,{signal:active});this.check(active);return result},{log:record=>console.info(record)})
+    if(request.referenceScope){const ref=result.references;if(ref?.protocol!=='course-project-v1'||ref.courseOfferingId!==this.resolvedCourseOfferingId||ref.scope.mode!==request.referenceScope.mode||JSON.stringify(ref.scope.dayIDs??[])!==JSON.stringify(request.referenceScope.dayIDs??[])||!ref.sources.length||ref.sources.some(s=>request.referenceScope!.mode==='lectures'&&!request.referenceScope!.dayIDs!.includes(s.dayID!)))throw Error('WEB_授業横断の参照をbackendが確認できませんでした。更新完了後に開き直してください。');onDelta(result.text)}
     this.check(signal);return result
   }
 }

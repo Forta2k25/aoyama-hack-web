@@ -1,4 +1,5 @@
 import type {ChatSyllabus} from '../ai/syllabus'
+import type {LectureMeeting} from '../ai/calendar'
 import type { Course } from '../timetable'
 import { imageFileAccept, isHEIC } from '../ai/image'
 import { copyAnswer, shareAnswer } from '../ai/answer-actions'
@@ -6,7 +7,7 @@ import { renderAnswer } from '../ai/answer-renderer'
 import { materialProgress } from '../ai/material-progress'
 import { AIController } from '../ai/controller'
 import { AIStore } from '../ai/store'
-import { resolveContext, offeringId, courseKey } from '../ai/identity'
+import { resolveContext, offeringId, courseKey, dateForDayID } from '../ai/identity'
 import { evidenceText, metadataText, safeError } from '../ai/format'
 import type { AIBackend, CourseContext, Evidence, LocalMaterial, Message } from '../ai/types'
 
@@ -23,30 +24,34 @@ export class CourseChat {
   private attachments=el('div','ai-composer-attachments');private attachmentCards=new Map<string,HTMLElement>()
   private sendWait=el('p','ai-send-wait')
   private syllabusNotice=el('p','ai-course-identity');private syllabus?:Promise<ChatSyllabus>
+  private scopePanel=el('div','ai-reference-scope');private scopeSelect=el('select');private rangeFrom=el('select');private rangeTo=el('select');private scopeRange=el('div','ai-reference-range');private scopeInfo=el('p','ai-reference-info');private meetings:LectureMeeting[]=[]
+  private projectActions:HTMLButtonElement[]=[]
   private composerBody=el('div','ai-composer-body');private composerCollapsed=false
   private composerToggle=button('入力欄を下げる ↓',()=>this.setComposerCollapsed(!this.composerCollapsed),'ai-composer-toggle')
   private suggestions=el('div','ai-suggestions');private caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。')
   private thumbnails=new Map<string,{file:Blob;url:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
-  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement,syllabus?:Promise<ChatSyllabus>){this.syllabus=syllabus;this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
+  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement,syllabus?:Promise<ChatSyllabus>,meetings:LectureMeeting[]=[]){this.meetings=meetings;this.syllabus=syllabus;this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
     this.root.replaceChildren();this.root.classList.add('web-ai')
     this.notice.textContent=this.backend.demo?'デバッグ専用・架空の応答です。Firebase／外部AIへは送信しません。':'本番接続 · forta-aogaku · 自分の資料のみ。利用には既存pilotの許可が必要です。'
     this.root.append(this.notice)
     const identity=el('p','ai-course-identity');identity.textContent='授業を確認しています…';this.root.append(identity)
-    const header=el('header','ai-materials-panel-header'),title=el('h3','','この授業回の資料'),close=button('閉じる',()=>this.materialsPanel.close())
+    const header=el('header','ai-materials-panel-header'),title=el('h3','','この授業の資料庫'),close=button('閉じる',()=>this.materialsPanel.close())
     title.id=`ai-materials-title-${crypto.randomUUID()}`;header.append(title,close)
     this.materialsPanel.id=`ai-materials-${crypto.randomUUID()}`;this.materialsPanel.setAttribute('aria-labelledby',title.id)
     this.materialsButton.setAttribute('aria-controls',this.materialsPanel.id);this.materialsButton.setAttribute('aria-haspopup','dialog');this.materialsButton.setAttribute('aria-expanded','false')
     this.materialsPanel.addEventListener('close',()=>{this.materialsButton.setAttribute('aria-expanded','false');if(!this.disposed)this.materialsButton.focus()})
-    const content=el('div','ai-materials-panel-content');content.append(el('p','ai-materials-help','回答に使う資料にチェックを入れてください。解析が完了した資料だけを参照します。'),this.materialsEmpty,this.materials)
+    const content=el('div','ai-materials-panel-content');content.append(el('p','ai-materials-help','各授業回で送った資料をまとめて保存します。通常は今回の資料だけを参照し、試験対策・レポートでは参照範囲を広げます。解析完了の資料のみを使用します。'),this.materialsEmpty,this.materials)
     const summary=el('summary','','読み取り本文・ページ別処理情報');this.evidence.append(summary,this.evidenceBody);this.evidence.hidden=true;content.append(this.evidence);this.materialsPanel.append(header,content);this.root.append(this.materialsPanel)
     if(this.toolbar)this.toolbar.append(this.materialsButton)
     else {const tools=el('div','ai-materials-toolbar');tools.append(this.materialsButton);this.root.prepend(tools)}
     this.thread.setAttribute('role','log');this.thread.setAttribute('aria-label','AIとの会話');this.thread.setAttribute('aria-live','polite');this.thread.setAttribute('aria-relevant','additions');this.root.append(this.thread)
+    this.mountScopeControls();this.thread.before(this.scopePanel)
     const welcome=el('div','ai-welcome');welcome.append(el('div','ai-mark','✦'),el('h3','','この授業の、学びの相棒。'),el('p','','資料を追加して、要約や質問から始めましょう。'),el('small','','授業ごとに会話と資料を保存します。'))
     this.thread.append(welcome)
     for(const text of ['要点をまとめて','小テストを作って','リアクションペーパーを一緒に考えて'])this.suggestions.append(button(text,()=>{this.setComposerCollapsed(false);this.textarea.value=text;this.textarea.focus()},'ai-suggestion'))
+    for(const [label,text]of [['試験対策（授業全体）','この授業のこれまでの資料をもとに、試験対策の重要事項と練習問題を作って。参照できない範囲も教えて。'],['期末レポートを計画','この授業のこれまでの資料を参照し、期末レポートの論点と構成を一緒に考えて。根拠の資料・授業日・ページも示して。']]){const action=button(label,()=>void this.perform(async()=>{this.controller!.setReferenceScope('course');this.setComposerCollapsed(false);this.textarea.value=text;this.textarea.focus()}),'ai-suggestion');this.projectActions.push(action);this.suggestions.append(action)}
     this.root.append(this.suggestions)
     this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=2;this.textarea.setAttribute('aria-label','AIへのメッセージ')
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
@@ -86,6 +91,26 @@ export class CourseChat {
     if(!collapsed&&!this.textarea.disabled)this.textarea.focus()
   }
   private openMaterials(){if(this.disposed||this.materialsPanel.open)return;this.materialsButton.setAttribute('aria-expanded','true');this.materialsPanel.showModal()}
+  private dayLabel(dayID:number){const meeting=this.meetings.find(m=>m.dayID===dayID);return `${meeting?`第${meeting.number}回 · `:''}${dateForDayID(dayID)}`}
+  private mountScopeControls(){
+    const label=el('label','','参照範囲 ');this.scopeSelect.setAttribute('aria-label','資料の参照範囲')
+    for(const [value,text]of [['lecture','今回の資料（通常）'],['course','この授業の全資料'],['lectures','授業回の範囲を指定']]){const option=el('option','',text);option.value=value;this.scopeSelect.append(option)}
+    label.append(this.scopeSelect);this.scopePanel.append(label)
+    for(const [input,text]of [[this.rangeFrom,'参照する最初の授業回'],[this.rangeTo,'参照する最後の授業回']] as const)input.setAttribute('aria-label',text)
+    this.scopeRange.append(this.rangeFrom,el('span','','〜'),this.rangeTo);this.scopePanel.append(this.scopeRange,this.scopeInfo)
+    const apply=()=>{const c=this.controller;if(!c)return;void this.perform(async()=>{const mode=this.scopeSelect.value as 'lecture'|'course'|'lectures';const from=Number(this.rangeFrom.value),to=Number(this.rangeTo.value);if(mode==='lectures'&&from>to)throw Error('WEB_最初の授業回を最後の授業回以前にしてください。');const days=[...this.rangeFrom.options].map(o=>Number(o.value)).filter(n=>n>=from&&n<=to);c.setReferenceScope(mode,days)})}
+    this.scopeSelect.addEventListener('change',apply);this.rangeFrom.addEventListener('change',apply);this.rangeTo.addEventListener('change',apply)
+  }
+  private renderScope(){
+    const c=this.controller!;const days=[...new Set([...this.meetings.map(m=>m.dayID),...c.projectMaterials.map(row=>row.context.dayID),c.context.dayID])].sort((a,b)=>a-b)
+    const signature=days.join(',')
+    if(this.rangeFrom.dataset.days!==signature){const from=this.rangeFrom.value,to=this.rangeTo.value;for(const input of [this.rangeFrom,this.rangeTo]){input.replaceChildren(...days.map(day=>{const o=el('option','',this.dayLabel(day));o.value=String(day);return o}));input.dataset.days=signature}this.rangeFrom.value=days.includes(Number(from))?from:String(days[0]);this.rangeTo.value=days.includes(Number(to))?to:String(c.context.dayID)}
+    this.scopeSelect.value=c.referenceMode;this.scopeSelect.disabled=c.loading||c.sending
+    for(const option of [...this.scopeSelect.options])option.disabled=option.value!=='lecture'&&!c.projectAvailable
+    this.rangeFrom.disabled=this.rangeTo.disabled=c.loading||c.sending;this.scopeRange.hidden=c.referenceMode!=='lectures'
+    const ready=c.scopedMaterials.filter(row=>row.state==='ready').length,pending=c.scopedMaterials.filter(row=>row.state!=='ready').length
+    this.scopeInfo.textContent=!c.loading&&!c.projectAvailable?'授業横断の参照はbackend更新後に利用できます。現在は今回の資料を参照します。':c.referenceMode==='lecture'?`今回の選択資料 ${ready}件を参照。追加した資料は授業の資料庫にも残ります。`:`参照候補 ${ready}件${pending?`・未解析など ${pending}件は対象外`:''}。関連箇所を抽出して回答し、会話履歴はこの授業回だけを使います。`
+  }
   private async perform(action:()=>Promise<unknown>){try{await action()}catch(e){if(!this.disposed)this.status.textContent=safeError(e)}}
   private async addFiles(files:File[]){
     if(!this.controller||this.disposed)return
@@ -125,31 +150,34 @@ export class CourseChat {
     this.send.disabled=c.loading||c.sending||!!waiting;this.send.textContent=waiting?'資料を準備中…':'送信 ↑';this.send.title=waiting
     this.sendWait.hidden=!waiting;this.sendWait.textContent=waiting?waiting+' 文章は入力できます。':''
     this.stop.hidden=!c.sending;this.textarea.disabled=c.loading
-    this.materials.replaceChildren(...c.materials.map(row=>this.material(row)))
+    for(const action of this.projectActions){action.disabled=c.loading||c.sending||!c.projectAvailable;action.title=c.projectAvailable?'授業全体を参照する下書きを作ります（自動送信しません）':'対応backendの更新後に利用できます'}
+    this.renderScope()
+    this.materials.replaceChildren(...c.projectMaterials.map(row=>this.material(row)))
     this.renderAttachments()
-    this.materialsButton.textContent=`資料 (${c.materials.length})`;this.materialsEmpty.hidden=c.materials.length>0
+    this.materialsButton.textContent=`資料 (${c.projectMaterials.length})`;this.materialsEmpty.hidden=c.projectMaterials.length>0
     const pending=c.materials.filter(row=>['local','uploading','processing'].includes(row.state)).length
-    this.materialsButton.title=pending?`${pending}件の資料を処理中です`:'この授業回の資料一覧を開く'
-    if(this.selectedEvidence&&!c.materials.some(row=>row.id===this.selectedEvidence)){this.selectedEvidence=undefined;this.evidenceSignature='';this.evidenceTicket++;this.evidence.hidden=true;this.evidenceBody.replaceChildren()}
+    this.materialsButton.title=pending?`${pending}件の資料を処理中です`:'この授業の共通資料庫を開く'
+    if(this.selectedEvidence&&!c.projectMaterials.some(row=>row.id===this.selectedEvidence)){this.selectedEvidence=undefined;this.evidenceSignature='';this.evidenceTicket++;this.evidence.hidden=true;this.evidenceBody.replaceChildren()}
     const existing=[...this.bubbles.keys()];for(const id of existing)if(!c.messages.some(x=>x.id===id)){this.bubbles.get(id)?.remove();this.bubbles.delete(id)}
     this.thread.querySelector('.ai-welcome')?.toggleAttribute('hidden',c.messages.length>0)
     for(const message of c.messages)this.message(message)
     if(nearBottom||!this.hasAutoScrolled){this.thread.scrollTop=this.thread.scrollHeight;this.hasAutoScrolled=true}
-    const selected=c.materials.find(x=>x.id===this.selectedEvidence)
+    const selected=c.projectMaterials.find(x=>x.id===this.selectedEvidence)
     const completed=selected?.remote?.previewProgress?.completed??0
     const signature=selected?.remote?`${selected.id}:${selected.remote.status}:${selected.remote.activeVersion}:${selected.remote.previewVersion}:${completed}`:''
     if(selected?.remote&&(['ready','partial_ready'].includes(selected.remote.status)||completed>0)&&signature!==this.evidenceSignature){this.evidenceSignature=signature;void this.loadEvidence(selected.id)}
   }
   private material(row:LocalMaterial){
-    const c=this.controller!,card=el('div','ai-material'),header=el('div','ai-material-row'),check=el('input');check.type='checkbox';check.checked=c.selected.has(row.id);check.disabled=row.state!=='ready';check.setAttribute('aria-label',`${row.title}を回答に参照する`)
-    check.addEventListener('change',()=>{if(check.checked&&c.selected.size>=8){check.checked=false;this.status.textContent='参照する資料は8件まで選択できます。';return}if(check.checked){c.selected.add(row.id);this.dismissedAttachments.delete(row.id)}else c.selected.delete(row.id);this.renderAttachments()})
+    const c=this.controller!,card=el('div','ai-material'),header=el('div','ai-material-row'),check=el('input'),current=c.materials.some(m=>m.id===row.id);check.type='checkbox';check.checked=c.referenceMode==='lecture'?c.selected.has(row.id):row.state==='ready'&&c.scopedMaterials.some(m=>m.id===row.id);check.disabled=row.state!=='ready'||!current||c.referenceMode!=='lecture';check.setAttribute('aria-label',`${row.title}を回答に参照する`)
+    check.addEventListener('change',()=>{if(check.checked&&c.selected.size>=8){check.checked=false;this.status.textContent='今回の資料は8件まで選択できます。授業全体の参照では授業共通資料庫から検索します。';return}if(check.checked){c.selected.add(row.id);this.dismissedAttachments.delete(row.id)}else c.selected.delete(row.id);this.renderAttachments();this.renderScope()})
     const detail=materialProgress(row,c.uploadProgress.get(row.id)),title=el('span','ai-material-title',row.title),status=el('span','ai-material-status',detail.label);header.append(check,title,status);card.append(header)
+    card.append(el('small','ai-library-date',this.dayLabel(row.context.dayID)+(current?' · 今回の授業回':'')))
     if(row.state==='uploading'){const p=el('progress');p.max=100;p.value=c.uploadProgress.get(row.id)??0;p.setAttribute('aria-label','アップロード進捗');card.append(p)}
     if(row.error)card.append(el('p','ai-material-error',row.error))
     const actions=el('div','ai-material-actions')
     if(row.remote&&(row.state==='ready'||(row.remote.previewProgress?.completed??0)>0))actions.append(button(row.state==='ready'?'本文':'途中結果・検索対象外',()=>{this.selectedEvidence=row.id;this.evidenceSignature='';void this.loadEvidence(row.id)}))
     if(row.state==='failed'||row.state==='local')actions.append(button('再送',()=>void this.perform(()=>c.retry(row.id))))
-    if(row.state==='ready'){const ask=button('この資料について聞く',()=>{c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.setComposerCollapsed(false);void this.perform(()=>c.send('','intro'))});ask.disabled=c.loading||c.sending||!!c.materialWaitReason;ask.title=c.materialWaitReason;actions.append(ask)}
+    if(row.state==='ready'&&current){const ask=button('この資料について聞く',()=>{c.setReferenceScope('lecture');c.selected.clear();c.selected.add(row.id);this.materialsPanel.close();this.setComposerCollapsed(false);void this.perform(()=>c.send('','intro'))});ask.disabled=c.loading||c.sending||!!c.materialWaitReason;ask.title=c.materialWaitReason;actions.append(ask)}
     actions.append(button('削除',()=>{if(confirm(`「${row.title}」を削除しますか？ AIに保存された本文と原本も削除します。`))void this.perform(()=>c.delete(row.id))}))
     card.append(actions);return card
   }
@@ -167,7 +195,7 @@ export class CourseChat {
         image.loading='lazy';image.decoding='async';image.width=48;image.height=48;image.hidden=true;image.onerror=()=>{image.hidden=true;kind.hidden=false}
         state.setAttribute('role','status');preview.append(image,kind);info.append(name,state);open.append(preview,info)
         const progress=el('progress');progress.max=100;progress.setAttribute('aria-label','資料のアップロード進捗')
-        const tools=el('div','ai-attachment-tools'),retry=button('再送',()=>void this.perform(()=>c.retry(row.id)),'ai-small-button ai-attachment-retry'),dismiss=button('回答から外す',()=>{c.selected.delete(row.id);this.recentAttachments.delete(row.id);this.dismissedAttachments.add(row.id);this.render()},'ai-small-button ai-attachment-dismiss')
+        const tools=el('div','ai-attachment-tools'),retry=button('再送',()=>void this.perform(()=>c.retry(row.id)),'ai-small-button ai-attachment-retry'),dismiss=button('回答から外す',()=>{if(c.referenceMode==='lecture')c.selected.delete(row.id);this.recentAttachments.delete(row.id);this.dismissedAttachments.add(row.id);this.render()},'ai-small-button ai-attachment-dismiss')
         tools.append(retry,dismiss);card.append(open,progress,tools);this.attachmentCards.set(row.id,card)
       }
       const awaiting=row.state==='processing'&&row.remote?.status==='awaiting_upload'
@@ -186,7 +214,8 @@ export class CourseChat {
       progress.hidden=!detail.progress;progress.max=detail.progress?.max??100;progress.setAttribute('aria-label',detail.progress?.description??'資料の進捗')
       if(detail.progress?.value===undefined)progress.removeAttribute('value');else progress.value=detail.progress.value
       card.querySelector<HTMLButtonElement>('.ai-attachment-retry')!.hidden=row.state!=='failed'&&!awaiting
-      const dismiss=card.querySelector<HTMLButtonElement>('.ai-attachment-dismiss')!;dismiss.hidden=row.state!=='ready';dismiss.textContent=c.selected.has(row.id)?'回答から外す':'表示を閉じる'
+      if(c.referenceMode!=='lecture'&&row.state==='ready')state.textContent+=c.scopedMaterials.some(m=>m.id===row.id)?' · 参照範囲内':' · 指定範囲外'
+      const dismiss=card.querySelector<HTMLButtonElement>('.ai-attachment-dismiss')!;dismiss.hidden=row.state!=='ready';dismiss.textContent=c.referenceMode==='lecture'&&c.selected.has(row.id)?'回答から外す':'表示を閉じる'
     }
     const cards=rows.map(row=>this.attachmentCards.get(row.id)!)
     if(cards.length!==this.attachments.children.length||cards.some((card,i)=>this.attachments.children[i]!==card))this.attachments.replaceChildren(...cards)
@@ -203,6 +232,8 @@ export class CourseChat {
     if(!resume&&message.role==='assistant'){resume=button('続きから再開',()=>void this.perform(()=>this.controller!.resume(message.id)),'ai-small-button ai-answer-resume');bubble.append(resume)}
     if(resume){resume.hidden=!message.canResume||message.state==='sending';resume.disabled=!!this.controller?.sending}
     if(message.role==='assistant'){
+      let references=bubble.querySelector<HTMLElement>('.ai-project-references')
+      if(message.references){if(!references){references=el('details','ai-project-references');bubble.append(references)}const r=message.references;references.replaceChildren(el('summary','',`参照資料 ${r.sources.length}件 · ${r.scope.mode==='course'?'この授業の全資料':'指定した授業回'}`),el('p','',`対象 ${r.targetSources}件。未解析 ${r.processingSources}件・失敗 ${r.failedSources}件・変更 ${r.changedSources}件・本文なし ${r.noTextSources}件は参照していません。${r.excerpted?'本文は関連箇所の抜粋です。':''}`));for(const source of r.sources){const places=source.locators.map(l=>l.pageNumber?`p.${l.pageNumber}`:l.startSeconds!==undefined?`${l.startSeconds}秒`:l.startMs!==undefined?`${l.startMs/1000}秒`:'').filter(Boolean).join(' / ');references.append(el('p','',`${source.dayID===undefined?'授業日未確定':this.dayLabel(source.dayID)} · ${source.title}${places?' · '+places:''}${source.partial?'（部分完了）':''}`))}}else references?.remove()
       let actions=bubble.querySelector<HTMLElement>('.ai-message-actions')
       if(!actions){
         actions=el('div','ai-message-actions');const feedback=el('span','ai-message-action-status');feedback.setAttribute('role','status')
@@ -225,7 +256,7 @@ export class CourseChat {
     finally{action.disabled=false}
   }
   private async loadEvidence(id:string){
-    const c=this.controller,row=c?.materials.find(x=>x.id===id);if(!c||!row?.remote)return
+    const c=this.controller,row=c?.projectMaterials.find(x=>x.id===id);if(!c||!row?.remote)return
     const ticket=++this.evidenceTicket,preview=!['ready','partial_ready'].includes(row.remote.status)
     this.evidence.hidden=false;this.evidence.open=true;this.evidenceBody.replaceChildren(el('p','','本文を取得しています…'))
     try{

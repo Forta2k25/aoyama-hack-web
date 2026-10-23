@@ -1,0 +1,95 @@
+/* Student landing only. Every rule is scoped; existing login and app screens keep their CSS. */
+.student-portal { --student-green: #007a5e; --student-ink: #1d3430; --student-muted: #687d77; color: var(--student-ink); background: #fff; min-height: 100dvh; font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.student-portal a { color: inherit; text-decoration: none; }
+.student-portal svg { width: 24px; height: 24px; flex-shrink: 0; }
+.student-portal a:focus-visible { outline: 3px solid var(--student-green); outline-offset: 5px; }
+.student-portal .student-skip { position: fixed; top: 8px; left: 8px; z-index: 200; padding: 12px; background: #fff; transform: translateY(-160%); }
+.student-portal .student-skip:focus { transform: translateY(0); }
+.student-portal .student-header { height: 88px; padding: 0 max(32px, calc((100% - 1280px)/2)); display: flex; align-items: center; justify-content: space-between; gap: 24px; border-bottom: 1px solid #e3eae6; }
+.student-portal .student-brand { display: inline-flex; align-items: baseline; flex-shrink: 0; gap: 13px; color: var(--student-green); }
+.student-portal .student-brand-name { font-family: var(--brand-font); font-size: 28px; font-weight: 900; letter-spacing: -.7px; }
+.student-portal .student-brand-label { font-size: 11px; letter-spacing: 1.1px; font-weight: 600; }
+.student-portal .student-nav { display: flex; align-items: center; gap: 34px; color: var(--student-green); font-size: 14px; font-weight: 650; }
+.student-portal .student-nav a { min-height: 44px; display: inline-flex; align-items: center; gap: 9px; transition: color .16s; white-space: nowrap; }
+.student-portal .student-nav a:hover { color: #004d3b; }
+.student-portal .student-nav svg { width: 20px; height: 20px; }
+.student-portal .student-nav-login { background: var(--student-green); color: #fff; padding: 0 19px; border-radius: 7px; }
+.student-portal .student-nav-login:hover { background: #00654d; color: #fff; }
+.student-portal .student-main { width: min(1120px, calc(100% - 64px)); display: block; padding: 52px 0 0; margin: 0 auto; }
+.student-portal .student-intro { display: flex; align-items: center; gap: 9px; margin-bottom: 17px; color: var(--student-muted); font-size: 12px; font-weight: 600; letter-spacing: 1px; }
+.student-portal .student-intro-dot { width: 6px; height: 6px; background: #45967d; border-radius: 50%; }
+.student-portal .student-hero { display: grid; grid-template-columns: 1.18fr 1fr; overflow: hidden; border: 1px solid #d6e2dc; border-radius: 22px; min-height: 406px; }
+.student-portal .student-hero-copy { background: #eaf4ee; position: relative; overflow: hidden; padding: 48px 46px; }
+.student-portal .student-eyebrow { margin: 0 0 33px; color: #4a7865; font-size: 10px; letter-spacing: 2.4px; font-weight: 650; }
+.student-portal h1 { position: relative; z-index: 1; margin: 0 0 20px; font-size: clamp(32px, 3.3vw, 43px); font-weight: 750; letter-spacing: .6px; line-height: 1.65; color: #12674f; }
+.student-portal .student-hero-description { position: relative; z-index: 1; color: #536f63; line-height: 1.95; font-size: 14px; margin: 0; }
+.student-portal .student-hero-caption { display: flex; gap: 9px; align-items: center; margin-top: 30px; font-size: 9px; letter-spacing: 1.5px; color: #5f8070; position: relative; z-index: 1; }
+.student-portal .student-hero-caption span { height: 1px; width: 25px; background: #7a9d8c; }
+.student-portal .student-grid-art { position: absolute; right: -23px; bottom: -42px; width: 192px; transform: rotate(-14deg); display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; opacity: .6; }
+.student-portal .student-grid-art span { font-size: 9px; letter-spacing: 1px; text-align: center; color: #759d89; }
+.student-portal .student-grid-art i { height: 42px; border-radius: 6px; border: 1px solid #a2c3b1; }
+.student-portal .student-grid-art .filled { background: #c8e2d1; border-color: #b1d0bf; }
+.student-portal .student-grid-art .muted { background: #f4f8f4; border-color: transparent; }
+.student-portal .student-timetable-action { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; padding: 40px; background: #fff; }
+.student-portal .student-icon-tile { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; color: var(--student-green); background: #eef6f1; margin-bottom: 23px; }
+.student-portal .student-icon-tile svg { width: 28px; height: 28px; }
+.student-portal .student-action-kicker { font-size: 11px; color: var(--student-muted); letter-spacing: .8px; margin: 0 0 7px; }
+.student-portal .student-timetable-action h2 { margin: 0 0 17px; font-size: 26px; line-height: 1.45; letter-spacing: .5px; }
+.student-portal .student-timetable-action > p:not([class]) { font-size: 14px; line-height: 1.9; color: var(--student-muted); margin: 0 0 27px; }
+.student-portal .student-primary { width: 100%; padding: 15px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-radius: 7px; background: var(--student-green); color: #fff; font-size: 14px; font-weight: 650; transition: background .16s; }
+.student-portal .student-primary:hover { background: #00654d; }
+.student-portal .student-primary svg { width: 20px; height: 20px; }
+.student-portal .student-account-note { margin: 12px 0 0; color: var(--student-muted); font-size: 10px; line-height: 1.6; }
+.student-portal .student-shortcuts { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding-top: 22px; margin-top: 22px; border-top: 1px solid #e3eae6; }
+.student-portal .student-shortcut { border: 1px solid #d6e2dc; border-radius: 15px; padding: 28px 28px 25px; display: flex; align-items: flex-start; gap: 21px; min-width: 0; transition: border-color .16s, background .16s; }
+.student-portal .student-shortcut:hover { border-color: #80b49a; background: #f9fcfa; }
+.student-portal .student-shortcut-icon { color: var(--student-green); padding-top: 3px; }
+.student-portal .student-shortcut h2 { display: flex; flex-wrap: wrap; align-items: center; gap: 11px; font-size: 19px; margin: 0 0 11px; font-weight: 650; }
+.student-portal .student-shortcut p { margin: 0 0 20px; font-size: 12px; color: var(--student-muted); line-height: 1.9; }
+.student-portal .student-shortcut-link { display: flex; align-items: center; gap: 18px; font-size: 12px; font-weight: 650; color: var(--student-green); }
+.student-portal .student-shortcut-link svg { width: 18px; height: 18px; }
+.student-portal .student-pilot-badge { padding: 3px 7px; background: #eef5ef; color: #53735f; border-radius: 4px; font-size: 9px; font-weight: 500; }
+.student-portal .student-shortcut small { display: block; font-size: 9px; line-height: 1.6; color: var(--student-muted); margin-top: 12px; }
+.student-portal .student-return-note { display: flex; justify-content: center; align-items: center; gap: 14px; padding: 31px 0 34px; }
+.student-portal .student-note-line { width: 26px; height: 1px; background: #cbdad0; }
+.student-portal .student-return-note p { margin: 0; font-size: 11px; line-height: 1.9; color: #668073; }
+.student-portal .student-return-note p span { color: #718079; font-size: 10px; }
+.student-portal .student-footer { width: min(1120px, calc(100% - 64px)); margin: 0 auto; background: transparent; border: 0; border-top: 1px solid #e3eae6; border-radius: 0; box-shadow: none; padding: 22px 0 28px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.student-portal .student-footer p { margin: 0; color: var(--student-green); font-size: 14px; font-weight: 700; }
+.student-portal .student-footer p span { color: var(--student-muted); font-size: 10px; font-weight: 400; margin-left: 10px; }
+.student-portal .student-footer nav { display: flex; flex-wrap: wrap; gap: 20px; }
+.student-portal .student-footer a { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; color: #5d7169; min-height: 32px; }
+.student-portal .student-footer a:hover { text-decoration: underline; }
+.student-portal .student-footer svg { width: 12px; height: 12px; }
+@media (max-width: 760px) {
+  .student-portal .student-header { height: auto; min-height: 76px; padding: 18px 20px; flex-wrap: wrap; gap: 15px; }
+  .student-portal .student-brand-name { font-size: 24px; }
+  .student-portal .student-brand-label { font-size: 9px; }
+  .student-portal .student-nav { width: 100%; gap: 22px; font-size: 12px; justify-content: space-between; }
+  .student-portal .student-nav-login { margin-left: auto; padding: 0 13px; }
+  .student-portal .student-nav svg { width: 17px; height: 17px; }
+  .student-portal .student-main { width: calc(100% - 36px); padding-top: 28px; }
+  .student-portal .student-intro { font-size: 10px; margin-bottom: 13px; }
+  .student-portal .student-hero { grid-template-columns: 1fr; border-radius: 17px; }
+  .student-portal .student-hero-copy { padding: 31px 26px 34px; }
+  .student-portal .student-eyebrow { font-size: 8px; margin-bottom: 23px; }
+  .student-portal h1 { font-size: 33px; margin-bottom: 15px; }
+  .student-portal .student-hero-description { font-size: 12px; }
+  .student-portal .student-hero-caption { margin-top: 24px; font-size: 7px; }
+  .student-portal .student-grid-art { width: 154px; opacity: .45; }
+  .student-portal .student-timetable-action { padding: 28px 26px; }
+  .student-portal .student-icon-tile { width: 43px; height: 43px; border-radius: 11px; margin-bottom: 16px; }
+  .student-portal .student-timetable-action h2 { font-size: 23px; margin-bottom: 12px; }
+  .student-portal .student-timetable-action > p:not([class]) { font-size: 12px; margin-bottom: 21px; }
+  .student-portal .student-primary { font-size: 12px; padding: 15px 13px; }
+  .student-portal .student-account-note { font-size: 9px; }
+  .student-portal .student-shortcuts { grid-template-columns: 1fr; gap: 13px; padding-top: 17px; margin-top: 17px; }
+  .student-portal .student-shortcut { padding: 24px 23px; gap: 18px; }
+  .student-portal .student-shortcut h2 { font-size: 18px; }
+  .student-portal .student-return-note { justify-content: flex-start; padding: 25px 8px; }
+  .student-portal .student-footer { width: calc(100% - 36px); flex-direction: column; align-items: flex-start; padding: 22px 5px; gap: 13px; }
+  .student-portal .student-footer nav { gap: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .student-portal a { transition: none; }
+}

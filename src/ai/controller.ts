@@ -5,15 +5,26 @@ import { audioDurationSeconds } from './media'
 import { courseKey, offeringId, sessionKey, dateForDayID } from './identity'
 import { fileKind, mimeFor, safeError } from './format'
 import { AIStore } from './store'
-import type { AIBackend, CourseContext, LocalMaterial, Message, Receipt, RemoteSource, SourceKind } from './types'
+import type { AIBackend, CourseContext, LocalMaterial, Message, Receipt, RemoteSource, SourceKind, ProjectScope } from './types'
 
 // Persist only DTO fields. Signed upload URLs, tokens and request headers never enter IndexedDB.
 export function persistentSource(source:Receipt):RemoteSource {
-  const {sourceId,sourceType,title,status,courseOfferingId,lectureId,pipelineVersion,activeVersion,previewVersion,previewProgress,recognition,latency,error}=source
-  return {sourceId,sourceType,title,status,courseOfferingId,lectureId,pipelineVersion,activeVersion,previewVersion,previewProgress,recognition,latency,error}
+  const {sourceId,sourceType,title,status,courseOfferingId,dayID,lectureId,pipelineVersion,activeVersion,previewVersion,previewProgress,recognition,latency,error}=source
+  return {sourceId,sourceType,title,status,courseOfferingId,dayID,lectureId,pipelineVersion,activeVersion,previewVersion,previewProgress,recognition,latency,error}
 }
 export class AIController {
   materials:LocalMaterial[]=[]; messages:Message[]=[]; selected=new Set<string>(); uploadProgress=new Map<string,number>()
+  private library:LocalMaterial[]=[]
+  referenceMode:'lecture'|'course'|'lectures'='lecture';referenceDayIDs:number[]=[]
+  get projectMaterials(){return [...new Map([...this.library,...this.materials].map(row=>[row.id,row])).values()].sort((a,b)=>a.context.dayID-b.context.dayID||a.createdAt-b.createdAt)}
+  get projectAvailable(){return this.backend.projectContextProtocol==='course-project-v1'}
+  setReferenceScope(mode:'lecture'|'course'|'lectures',dayIDs:number[]=[]){
+    if(this.sending)throw Error('WEB_回答の生成中は参照範囲を変更できません。')
+    if(mode!=='lecture'&&!this.projectAvailable)throw Error('WEB_授業横断の参照には対応backendの反映が必要です。今回は今回の資料を参照してください。')
+    if(mode==='lectures'&&(!dayIDs.length||dayIDs.length>60||dayIDs.some(n=>!Number.isSafeInteger(n)||n<0||n>200000)))throw Error('WEB_参照する授業回を選んでください。')
+    this.referenceMode=mode;this.referenceDayIDs=[...new Set(dayIDs)].sort((a,b)=>a-b);this.notify()
+  }
+  get scopedMaterials(){return (this.referenceMode==='lecture'?this.materials.filter(row=>this.selected.has(row.id)):this.projectMaterials.filter(row=>this.referenceMode==='course'||this.referenceDayIDs.includes(row.context.dayID))).filter(row=>!row.wantsDeletion&&row.state!=='deleting')}
   loading=true; error=''; sending=false; private lifetime=new AbortController(); private reply?:AbortController
   private preparingMaterials=new Set<symbol>()
   private requests=new Map<string,AbortController>(); private timer?:ReturnType<typeof setTimeout>; private polls=0
@@ -30,6 +41,7 @@ export class AIController {
     try{
       const [materials,messages]=await Promise.all([this.store.materials(this.uid,this.key,this.threadKey),this.store.messages(this.uid,this.key,this.threadKey)])
       this.lifetime.signal.throwIfAborted();this.materials=materials;this.messages=messages
+      this.library=(await this.store.materials(this.uid,this.key)).filter(row=>row.sessionKey===sessionKey({...this.context,dayID:row.context.dayID})&&row.sessionKey!==this.threadKey)
       for(const m of messages)if(m.state==='sending'){m.state='interrupted';await this.store.putMessage(m)}
       for(const m of materials){if(m.state==='uploading'){m.state='failed';m.error='送信が中断されました。同じ送信IDで再送できます。';await this.store.putMaterial(m)}if(this.selected.size<8&&['ready','partial_ready'].includes(m.remote?.status ?? ''))this.selected.add(m.id)}
       const remote=await this.backend.list(this.context,this.lifetime.signal)
@@ -37,14 +49,15 @@ export class AIController {
       for(const source of remote){
         if(source.status==='deleted')continue
         // Refuse cross-course or unassigned remote rows, even if a list API returns more than requested.
-        const canonical=offeringId(this.context),known=this.materials.find(x=>x.remote?.sourceId===source.sourceId)
-        const knownOffering=this.materials.find(x=>x.remote?.courseOfferingId)?.remote?.courseOfferingId
+        const canonical=offeringId(this.context),known=this.projectMaterials.find(x=>x.remote?.sourceId===source.sourceId)
+        const knownOffering=this.backend.resolvedCourseOfferingId??this.projectMaterials.find(x=>x.remote?.courseOfferingId)?.remote?.courseOfferingId
         if(canonical?source.courseOfferingId!==canonical:source.courseOfferingId!==knownOffering)continue
-        if(!known&&![''+this.context.dayID,`day-${this.context.dayID}`,dateForDayID(this.context.dayID)].includes(source.lectureId??''))continue
-        let local=this.materials.find(x=>x.remote?.sourceId===source.sourceId)
-        if(!local){local={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,context:structuredClone(this.context),clientRequestId:crypto.randomUUID(),type:source.sourceType,title:source.title,mime:'',size:0,remote:persistentSource(source),state:'processing',createdAt:Date.now()};this.materials.push(local)}
+        const dayID=Number.isSafeInteger(source.dayID)?source.dayID!:known?.context.dayID??([''+this.context.dayID,`day-${this.context.dayID}`,dateForDayID(this.context.dayID)].includes(source.lectureId??'')?this.context.dayID:undefined)
+        if(dayID===undefined||dayID<0||dayID>200000)continue
+        let local=known
+        if(!local){const context={...this.context,dayID};local={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:sessionKey(context),context,clientRequestId:crypto.randomUUID(),type:source.sourceType,title:source.title,mime:'',size:0,remote:persistentSource(source),state:'processing',createdAt:Date.now()};if(local.sessionKey===this.threadKey)this.materials.push(local);else this.library.push(local)}
         local.remote=persistentSource(source);this.applyStatus(local);await this.store.putMaterial(local)
-        if(this.selected.size<8&&['ready','partial_ready'].includes(source.status))this.selected.add(local.id)
+        if(local.sessionKey===this.threadKey&&this.selected.size<8&&['ready','partial_ready'].includes(source.status))this.selected.add(local.id)
       }
     }catch(e){if(!this.lifetime.signal.aborted)this.error=safeError(e)}
     finally{this.loading=false;this.notify();if(!this.lifetime.signal.aborted)this.schedule()}
@@ -57,20 +70,20 @@ export class AIController {
   private schedule(){
     clearTimeout(this.timer)
     if(this.lifetime.signal.aborted)return
-    const active=this.materials.some(x=>x.state==='processing'||x.state==='deleting')
+    const active=this.projectMaterials.some(x=>x.state==='processing'||x.state==='deleting')
     if(!active)return
     const delay=this.polls<10?1000:this.polls<30?2000:3000
     this.timer=setTimeout(()=>void this.poll(),delay)
   }
   private async poll(){
     try{
-      for(const row of [...this.materials].filter(x=>x.remote&&(x.state==='processing'||x.state==='deleting'))){
+      for(const row of this.projectMaterials.filter(x=>x.remote&&(x.state==='processing'||x.state==='deleting'))){
         const remote=await this.backend.get(row.remote!.sourceId,this.lifetime.signal);this.lifetime.signal.throwIfAborted()
         if(remote.sourceId!==row.remote!.sourceId||remote.courseOfferingId!==row.remote!.courseOfferingId)throw Error('WEB_資料の授業識別情報が一致しません。別授業の資料は取り込みません。')
         const becameReady=row.state!=='ready'&&['ready','partial_ready'].includes(remote.status)
         row.remote=persistentSource(remote)
-        if(remote.status==='deleted'){await this.store.removeMaterial(row.id);this.materials=this.materials.filter(x=>x.id!==row.id);this.selected.delete(row.id)}else{this.applyStatus(row);await this.save(row)}
-        if(becameReady&&this.selected.size<8)this.selected.add(row.id)
+        if(remote.status==='deleted'){await this.store.removeMaterial(row.id);this.materials=this.materials.filter(x=>x.id!==row.id);this.library=this.library.filter(x=>x.id!==row.id);this.selected.delete(row.id)}else{this.applyStatus(row);await this.save(row)}
+        if(becameReady&&row.sessionKey===this.threadKey&&this.selected.size<8)this.selected.add(row.id)
       }
       this.error=''
     }catch(e){if(!this.lifetime.signal.aborted)this.error=safeError(e)}
@@ -98,7 +111,7 @@ export class AIController {
     await this.store.putMaterial(row);this.lifetime.signal.throwIfAborted();this.preparingMaterials.delete(preparation);this.materials.push(row);this.notify();void this.sendMaterial(row)
     return row
   }
-  async retry(id:string){const row=this.materials.find(x=>x.id===id);if(row)await this.sendMaterial(row)}
+  async retry(id:string){const row=this.projectMaterials.find(x=>x.id===id);if(row)await this.sendMaterial(row)}
   private async sendMaterial(row:LocalMaterial){
     if(this.requests.has(row.id)||this.lifetime.signal.aborted)return
     const request=new AbortController(),stop=()=>request.abort();this.lifetime.signal.addEventListener('abort',stop,{once:true});this.requests.set(row.id,request)
@@ -119,7 +132,7 @@ export class AIController {
     finally{this.lifetime.signal.removeEventListener('abort',stop);this.requests.delete(row.id);this.uploadProgress.delete(row.id);this.notify()}
   }
   async delete(id:string){
-    const row=this.materials.find(x=>x.id===id);if(!row)return
+    const row=this.projectMaterials.find(x=>x.id===id);if(!row)return
     row.wantsDeletion=true;await this.save(row)
     if(this.requests.has(id)){
       row.state='deleting';await this.save(row)
@@ -133,15 +146,20 @@ export class AIController {
   }
   private async removeRemoteAndLocal(row:LocalMaterial){
     if(row.remote){row.state='deleting';await this.save(row);await this.backend.delete(row.remote.sourceId,this.lifetime.signal)}
-    await this.store.removeMaterial(row.id);this.materials=this.materials.filter(x=>x.id!==row.id);this.selected.delete(row.id);this.notify()
+    await this.store.removeMaterial(row.id);this.materials=this.materials.filter(x=>x.id!==row.id);this.library=this.library.filter(x=>x.id!==row.id);this.selected.delete(row.id);this.notify()
   }
-  async evidence(id:string,preview:boolean){const row=this.materials.find(x=>x.id===id);if(!row?.remote)throw Error('WEB_未送信の資料です。');return this.backend.evidence(row.remote.sourceId,preview,this.lifetime.signal)}
+  async evidence(id:string,preview:boolean){const row=this.projectMaterials.find(x=>x.id===id);if(!row?.remote)throw Error('WEB_未送信の資料です。');return this.backend.evidence(row.remote.sourceId,preview,this.lifetime.signal)}
   async send(text:string,mode:'reply'|'intro'='reply'){
     if(this.sending)throw Error('WEB_返信を待つか、生成を中断してください。')
     if(this.loading)throw Error('WEB_資料の確認が終わるまでお待ちください。')
     if(this.materialWaitReason)throw Error('WEB_'+this.materialWaitReason)
     if(mode==='reply'&&(!text.trim()||text.length>2000))throw Error('WEB_メッセージは1〜2,000文字で入力してください。')
     const materials=this.materials.filter(x=>this.selected.has(x.id)&&x.remote&&['ready','partial_ready'].includes(x.remote.status)),sourceIds=materials.map(x=>x.remote!.sourceId)
+    const project=mode==='reply'&&this.referenceMode!=='lecture'
+    if(project&&!this.projectAvailable)throw Error('WEB_授業横断の参照は、backend更新が完了するまで利用できません。')
+    if(project&&!this.scopedMaterials.some(row=>row.state==='ready'&&row.remote))throw Error('WEB_選択した参照範囲に解析完了の資料がありません。')
+    const referenceScope:ProjectScope|undefined=project?{protocol:'course-project-v1',mode:this.referenceMode as 'course'|'lectures',...(this.referenceMode==='lectures'?{dayIDs:[...this.referenceDayIDs]}:{})}:undefined
+    const requestSourceIds=project?[]:sourceIds
     if(sourceIds.length>8)throw Error('WEB_一度に参照できる資料は8件までです。')
     if(mode==='intro'&&!sourceIds.length)throw Error('WEB_解析が完了した資料を選んでください。')
     this.lifetime.signal.throwIfAborted()
@@ -150,16 +168,16 @@ export class AIController {
     let message:Message|undefined
     try{
       if(mode==='reply'){
-        const user:Message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'user',text:text.trim(),sourceIds,state:'done',createdAt:now};await this.store.putMessage(user);this.messages.push(user);turns.push({role:'user',text:user.text})
+        const user:Message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'user',text:text.trim(),sourceIds:requestSourceIds,state:'done',createdAt:now};await this.store.putMessage(user);this.messages.push(user);turns.push({role:'user',text:user.text})
       }
       reply.signal.throwIfAborted()
-      message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'assistant',text:'',sourceIds,state:'sending',createdAt:now+1}
+      message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'assistant',text:'',sourceIds:requestSourceIds,state:'sending',createdAt:now+1}
       await this.store.putMessage(message);this.messages.push(message);this.notify();reply.signal.throwIfAborted()
       const recent=turns.slice(-12);if(recent[0]?.role==='assistant')recent.shift()
-      const request={...(this.syllabus?{syllabus:this.syllabus}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
+      const request={...(referenceScope?{referenceScope}:{}),...(this.syllabus?{syllabus:this.syllabus}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds:requestSourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
       message.resumeRequest=request
       const response=await this.backend.chat(request,reply.signal,delta=>{message!.text+=delta;this.notifyStream()},progress=>{message!.progress=progress;this.notify()})
-      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.state='done';message.canResume=false;message.progress=undefined;message.error=undefined;return true
+      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.references=response.references;if(response.references)message.sourceIds=response.references.sources.map(s=>s.sourceId);message.state='done';message.canResume=false;message.progress=undefined;message.error=undefined;return true
     }catch(e){
       if(message){message.state=reply.signal.aborted||message.text?'interrupted':'failed';message.canResume=e instanceof ChatStreamError&&e.canResume;message.error=safeError(e instanceof ChatStreamError?e.original:e);message.progress=undefined;message.text=message.text||message.error}
       this.error=safeError(e instanceof ChatStreamError?e.original:e);return false
@@ -177,7 +195,7 @@ export class AIController {
     try{
       const request={...message.resumeRequest!,resume:{protocol:'chat-resume-v1',partial:message.text}}
       const response=await this.backend.chat(request,reply.signal,delta=>{message.text+=delta;this.notifyStream()},progress=>{message.progress=progress;this.notify()})
-      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.state='done';message.progress=undefined;return true
+      reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.references=response.references;if(response.references)message.sourceIds=response.references.sources.map(s=>s.sourceId);message.state='done';message.progress=undefined;return true
     }catch(e){message.state='interrupted';message.canResume=e instanceof ChatStreamError&&e.canResume;message.error=safeError(e instanceof ChatStreamError?e.original:e);message.progress=undefined;return false}
     finally{try{await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;clearTimeout(this.streamTimer);this.streamTimer=undefined;this.notify()}}
   }

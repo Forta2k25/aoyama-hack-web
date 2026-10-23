@@ -2,7 +2,10 @@ import { defineConfig } from 'vite'
 import type { Connect } from 'vite'
 
 export default defineConfig(({mode}) => ({
-  define: { __WEB_AI_PREVIEW_BUILD__: JSON.stringify((mode==='development'||mode==='ai-preview') && process.env.VERCEL_ENV!=='production' && process.env.CONTEXT!=='production') },
+  define: {
+    __WEB_AI_PREVIEW_BUILD__: JSON.stringify((mode==='development'||mode==='ai-preview'||mode==='student-preview') && process.env.VERCEL_ENV!=='production' && process.env.CONTEXT!=='production'),
+    __STUDENT_PORTAL_BUILD__: JSON.stringify(mode==='student-preview'),
+  },
   server: {
     plugins: [],
   },
