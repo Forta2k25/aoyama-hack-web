@@ -366,6 +366,14 @@ let _outsideClickHandler: ((e: MouseEvent) => void) | null = null
 // 「AIに質問する」バーでコマを選んだあと、その授業は、AIチャットのタブから開く
 let _askPicked = false
 const takeAskPick = () => { const picked = _askPicked; _askPicked = false; return picked }
+// コマを押したとき: 「AIに質問する」から選んだ場合は、ChatGPTのような全画面のチャットを開く。それ以外は、授業の詳細。
+function openCourseFromCell(course: import('../timetable').Course) {
+  if (takeAskPick()) {
+    void import('./AskChat').then(({ openAskChat }) => openAskChat(course)).then((opened) => { if (!opened) openCourseModal(course) }).catch(() => openCourseModal(course))
+    return
+  }
+  openCourseModal(course)
+}
 
 let _courseRequest=0
 let _activeAI: CourseAI | undefined
@@ -647,7 +655,7 @@ export async function renderMyPage(user: AuthUser) {
     container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
       const open = () => {
         const raw = cell.getAttribute('data-course')
-        if (raw) { try { openCourseModal(JSON.parse(decodeURIComponent(raw)), true, takeAskPick() ? 'ai' : 'syllabus') } catch { /* ignore */ } }
+        if (raw) { try { openCourseFromCell(JSON.parse(decodeURIComponent(raw))) } catch { /* ignore */ } }
       }
       cell.addEventListener('click', open)
     })
@@ -710,7 +718,7 @@ export async function renderMyPage(user: AuthUser) {
           const raw = cell.getAttribute('data-course')
           if (!raw) return
           try {
-            openCourseModal(JSON.parse(decodeURIComponent(raw)), true, takeAskPick() ? 'ai' : 'syllabus')
+            openCourseFromCell(JSON.parse(decodeURIComponent(raw)))
           } catch { /* ignore */ }
         }
         cell.addEventListener('click', handler)

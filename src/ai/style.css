@@ -222,3 +222,32 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .web-ai .ai-math-display .katex-display { margin:.5em 0;text-align:left }
 .web-ai .ai-math-inline .katex { font-size:1.08em }
 .web-ai .ai-math-unfinished { white-space:pre-wrap;overflow-wrap:anywhere }
+
+/* 「AIに質問する」から開く全画面チャット: ChatGPTのように、白い画面に、入力欄だけを見せる */
+.ai-chat-screen--ask { background:#fff }
+.ai-chat-screen--ask::backdrop { background:#fff }
+.ai-chat-screen--ask .ai-chat-screen-header { border-bottom:0;background:transparent;padding:14px 18px;gap:12px }
+.ai-chat-screen--ask .ai-chat-screen-header .ai-small-button:first-child { width:38px;height:38px;border-radius:50%;padding:0;font-size:20px!important;line-height:1;background:#f2f4f3;border:0 }
+.ai-chat-screen--ask .ai-chat-screen-titles { flex:1;text-align:center }
+.ai-chat-screen--ask .ai-session-course { font-size:15px;font-weight:600 }
+.ai-chat-screen--ask .ai-session-title { margin:0;font-size:11px }
+.ai-chat-screen--ask .ai-chat-screen-actions { width:38px }
+.ai-chat-screen--ask .ai-session-chat { max-width:760px;padding:0 20px max(18px,env(safe-area-inset-bottom)) }
+.ai-chat-screen--ask .ai-notice,.ai-chat-screen--ask .ai-course-identity,.ai-chat-screen--ask .ai-reference-scope,.ai-chat-screen--ask .ai-suggestions,.ai-chat-screen--ask .ai-composer-caption,.ai-chat-screen--ask .ai-composer-header,.ai-chat-screen--ask .ai-materials-toolbar,.ai-chat-screen--ask .ai-materials-toggle,.ai-chat-screen--ask .ai-welcome small,.ai-chat-screen--ask .ai-welcome .ai-mark,.ai-chat-screen--ask .ai-welcome p { display:none!important }
+.ai-chat-screen--ask .ai-welcome h3 { margin:0;font-size:clamp(24px,4vw,32px);font-weight:500;color:#1b1f1d;text-align:center }
+.ai-chat-screen--ask .ai-thread { padding:6px 0 18px }
+.ai-chat-screen--ask .ai-thread:has(.ai-welcome:not([hidden])) { flex:0 0 auto;min-height:0;margin-top:auto;padding:0 0 22px }
+.ai-chat-screen--ask .ai-session-chat:has(.ai-welcome:not([hidden])) { justify-content:center }
+.ai-chat-screen--ask .ai-session-chat:has(.ai-welcome:not([hidden])) .ai-composer { position:static;margin-bottom:auto }
+.ai-chat-screen--ask .ai-composer { border:1px solid #e1e5e3;border-radius:28px;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.07);padding:10px 12px 8px 16px }
+.ai-chat-screen--ask .ai-composer-input { border:0;background:transparent;box-shadow:none;resize:none;min-height:30px;font-size:16px!important;padding:6px 0 }
+.ai-chat-screen--ask .ai-composer-input:focus,.ai-chat-screen--ask .ai-composer-input:focus-visible { outline:none }
+.ai-chat-screen--ask .ai-composer-tools { display:flex;align-items:center;justify-content:space-between }
+.ai-chat-screen--ask .ai-add-toggle { border-radius:50%;width:34px;height:34px;padding:0;display:grid;place-items:center;font-size:0;background:#f2f4f3;border:0 }
+.ai-chat-screen--ask .ai-add-toggle::before { content:'+';font-size:22px;color:#444;line-height:1 }
+.ai-chat-screen--ask .ai-send { border-radius:50%;width:34px;height:34px;padding:0;font-size:0!important;line-height:0;background:#1b1f1d;color:#fff;border:0;display:grid;place-items:center }
+.ai-chat-screen--ask .ai-send::before { content:'↑';font-size:18px;line-height:1 }
+.ai-chat-screen--ask .ai-send:disabled { background:#d8dcda }
+.ask-chat-login-body { flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center }
+.ask-chat-login-body h2 { margin:0;font-size:clamp(24px,4vw,32px);font-weight:500 }
+.ask-chat-login-body p { margin:0;color:#5b6b7a }

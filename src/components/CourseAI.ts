@@ -2,8 +2,8 @@ import {loadCourseSyllabus,chatSyllabus,type CourseSyllabus} from '../ai/syllabu
 import type {Course} from '../timetable'
 import type {AIBackend,CourseContext,Message,LocalMaterial} from '../ai/types'
 import {AIStore} from '../ai/store'
-import {courseKey,resolveContext,sessionKey,isCourseUUID,makeContext} from '../ai/identity'
-import {lectureSchedule,validDate,calendarSource,type LectureSettings,type LectureMeeting} from '../ai/calendar'
+import {courseKey,resolveContext,sessionKey,isCourseUUID,makeContext,dayIDFor} from '../ai/identity'
+import {lectureSchedule,validDate,calendarSource,japanDate,type LectureSettings,type LectureMeeting} from '../ai/calendar'
 import {safeError,evidenceText,metadataText} from '../ai/format'
 import {CourseChat} from './CourseChat'
 const node=<K extends keyof HTMLElementTagNameMap>(tag:K,cls='',text?:string)=>{const n=document.createElement(tag);n.className=cls;if(text!==undefined)n.textContent=text;return n}
@@ -13,7 +13,7 @@ export class CourseAI {
  private syllabus:Promise<CourseSyllabus>
  private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore
  constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),syllabus?:Promise<CourseSyllabus>){this.syllabus=syllabus??(backend.demo?Promise.resolve({status:'absent'}):loadCourseSyllabus(course.syllabusURL));this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
- async mount(){
+ async mount(direct=false){
   this.root.replaceChildren(node('p','','授業ごとの履歴を確認しています…'));this.root.classList.add('web-ai')
   try{
    this.context=await resolveContext(this.course,this.store,this.uid)
@@ -23,8 +23,15 @@ export class CourseAI {
    const old=isCourseUUID(this.course.id)?this.course.id:await this.store.lookupIdentity(this.uid,this.course.id||this.course.timetableRecord||'')
    if(old)keys.add(courseKey(makeContext(this.course,old)))
    for(const key of keys){this.legacy.push(...(await this.store.messages(this.uid,key)).filter(x=>!x.sessionKey));this.legacyMaterials.push(...(await this.store.materials(this.uid,key)).filter(x=>!x.sessionKey))}
-   await this.showList()
+   if(direct)await this.openLatest();else await this.showList()
   }catch(e){if(!this.disposed)this.root.replaceChildren(node('p','ai-status',safeError(e)))}
+ }
+ /** 授業回の一覧を飛ばして、いちばん新しい回(今日以前で最後。なければ最初)のチャットを、全画面で開く。 */
+ private async openLatest(){
+  const meetings=lectureSchedule(this.course,this.context!,this.settings).meetings,today=japanDate()
+  // meetings は新しい回が先頭。予定の回(まだ先)を飛ばして、いちばん新しい回を選ぶ。日程が出せない授業は、今日の日付で開く。
+  const meeting=meetings.find(m=>!m.upcoming)??meetings[0]??{number:1,date:today,dayID:dayIDFor(today),thisWeek:true,upcoming:false}
+  await this.open(meeting,true)
  }
  private async showList(){
   const ticket=++this.viewTicket
@@ -53,14 +60,14 @@ export class CourseAI {
   const screen=this.screen;this.screen=undefined
   if(screen){if(screen.open)screen.close();screen.remove();document.body.classList.remove('ai-chat-open')}
  }
- private async open(meeting:LectureMeeting){
+ private async open(meeting:LectureMeeting,ask=false){
   if(this.disposed)return
   this.viewTicket++;this.chat?.dispose();this.closeScreen();this.returnFocusDay=meeting.dayID
-  const screen=node('dialog','ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles'),actions=node('div','ai-chat-screen-actions')
-  const back=node('button','ai-small-button','← 授業回一覧'),heading=node('h3','ai-session-course',this.course.title),date=node('p','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
+  const screen=node('dialog',ask?'ai-chat-screen ai-chat-screen--ask':'ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles'),actions=node('div','ai-chat-screen-actions')
+  const back=node('button','ai-small-button',ask?'×':'← 授業回一覧'),heading=node('h3','ai-session-course',this.course.title),date=node('p','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
   heading.id=`ai-chat-title-${crypto.randomUUID()}`;screen.setAttribute('aria-labelledby',heading.id);screen.setAttribute('aria-modal','true')
-  back.type='button';back.addEventListener('click',()=>void this.showList());titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
-  this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(this.screen===screen&&!this.disposed)void this.showList()})
+  back.type='button';if(ask)back.setAttribute('aria-label','閉じる');back.addEventListener('click',()=>{if(ask)screen.close();else void this.showList()});titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
+  this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(ask){this.dispose();return}if(this.screen===screen&&!this.disposed)void this.showList()})
   document.body.classList.add('ai-chat-open');screen.showModal()
   this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions,this.syllabus.then(reference=>chatSyllabus(reference,this.course,meeting.number)),lectureSchedule(this.course,this.context!,this.settings).meetings);await this.chat.mount()
  }
