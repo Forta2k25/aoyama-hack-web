@@ -7,7 +7,7 @@ async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
   const stream = new Blob([data as BlobPart]).stream().pipeThrough(new DecompressionStream('deflate-raw'))
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
-async function readZipEntry(buffer: ArrayBuffer, wanted: string): Promise<Uint8Array | undefined> {
+async function readZipEntry(buffer: ArrayBuffer, wanted: string | RegExp): Promise<Uint8Array | undefined> {
   const view = new DataView(buffer), bytes = new Uint8Array(buffer)
   let end = -1
   for (let i = buffer.byteLength - 22; i >= Math.max(0, buffer.byteLength - 65557); i--) if (view.getUint32(i, true) === 0x06054b50) { end = i; break }
@@ -19,7 +19,7 @@ async function readZipEntry(buffer: ArrayBuffer, wanted: string): Promise<Uint8A
     const nameLength = view.getUint16(p + 28, true), extra = view.getUint16(p + 30, true), comment = view.getUint16(p + 32, true)
     const offset = view.getUint32(p + 42, true)
     const name = new TextDecoder().decode(bytes.subarray(p + 46, p + 46 + nameLength))
-    if (name === wanted) {
+    if (typeof wanted === 'string' ? name === wanted : wanted.test(name)) {
       const start = offset + 30 + view.getUint16(offset + 26, true) + view.getUint16(offset + 28, true)
       const raw = bytes.subarray(start, start + size)
       return method === 0 ? raw : method === 8 ? inflateRaw(raw) : undefined
@@ -66,4 +66,12 @@ export function chunkText(text: string, size = 9500): string[] {
   }
   if (current.trim()) out.push(current)
   return out
+}
+/** 文書の中にある最初の画像(png/jpeg)を、カードの絵にする。ページの見た目そのものは、この端末では作れない。 */
+export async function docxCover(file: File): Promise<Blob | undefined> {
+  try {
+    if (typeof DecompressionStream !== 'function') return undefined
+    const bytes = await readZipEntry(await file.arrayBuffer(), /^word\/media\/[^/]+\.(png|jpe?g)$/i)
+    return bytes ? new Blob([bytes as BlobPart], { type: /\.png$/i.test(file.name) ? 'image/png' : 'image/jpeg' }) : undefined
+  } catch { return undefined }
 }

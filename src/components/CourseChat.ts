@@ -1,4 +1,4 @@
-import {chunkText,docxMime,docxText,isDocx} from '../ai/docx'
+import {chunkText,docxCover,docxMime,docxText,isDocx} from '../ai/docx'
 import type {ChatSyllabus} from '../ai/syllabus'
 import type {LectureMeeting} from '../ai/calendar'
 import type { Course } from '../timetable'
@@ -30,7 +30,7 @@ export class CourseChat {
   private composerBody=el('div','ai-composer-body');private composerCollapsed=false
   private composerToggle=button('入力欄を下げる ↓',()=>this.setComposerCollapsed(!this.composerCollapsed),'ai-composer-toggle')
   private suggestions=el('div','ai-suggestions');private caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。')
-  private thumbnails=new Map<string,{file:Blob;url:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
+  private thumbnails=new Map<string,{file:Blob;url:string}>();private covers=new Map<string,{url:string;label:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
   constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement,syllabus?:Promise<ChatSyllabus>,meetings:LectureMeeting[]=[]){this.meetings=meetings;this.syllabus=syllabus;this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
@@ -142,7 +142,8 @@ export class CourseChat {
       const chunks=chunkText(await docxText(file))
       if(!chunks.length)throw Error('WEB_Wordファイルに本文が見つかりませんでした。')
       if(chunks.length>8)throw Error('WEB_Wordファイルが長すぎます。8万文字以内にするか、PDFにして追加してください。')
-      for(const [i,text] of chunks.entries()){const row=await this.controller!.stageNote(text,chunks.length>1?`${file.name}（${i+1}/${chunks.length}）`:file.name);this.recentAttachments.add(row.id)}
+      const cover=await docxCover(file),coverUrl=cover?URL.createObjectURL(cover):''
+      for(const [i,text] of chunks.entries()){const row=await this.controller!.stageNote(text,chunks.length>1?`${file.name}（${i+1}/${chunks.length}）`:file.name);this.covers.set(row.id,{url:coverUrl,label:'Word'});this.recentAttachments.add(row.id)}
       this.render()
       this.status.textContent=`Wordファイル「${file.name}」の本文を資料として追加しました。`
     })
@@ -252,6 +253,8 @@ export class CourseChat {
         if(entry?.file!==file){if(entry)URL.revokeObjectURL(entry.url);entry={file,url:URL.createObjectURL(file)};this.thumbnails.set(row.id,entry)}
         if(image.getAttribute('src')!==entry.url){image.src=entry.url;image.hidden=false;kind.hidden=true}
       }else{image.hidden=true;kind.hidden=false;image.removeAttribute('src')}
+      const own=this.covers.get(row.id)
+      if(own){kind.textContent=own.label;if(own.url){image.src=own.url;image.hidden=false;kind.hidden=true}}
       const detail=materialProgress(row,c.uploadProgress.get(row.id)),description=detail.label+(row.state==='ready'&&!c.selected.has(row.id)?'・回答対象外':'')
       if(state.textContent!==description)state.textContent=description
       progress.hidden=!detail.progress;progress.max=detail.progress?.max??100;progress.setAttribute('aria-label',detail.progress?.description??'資料の進捗')
@@ -358,5 +361,5 @@ export class CourseChat {
     if(value.latency){const labels:Record<string,string>={uploadMs:'送信',queueWaitMs:'待機',workerStartupMs:'起動',routerMs:'Router',nativeExtractionMs:'本文抽出',ocrProbeMs:'OCR probe',ocrMs:'OCR',aiMs:'AI',persistenceMs:'保存',evidenceMs:'本文取得',totalProcessingMs:'worker全体'};const lines=Object.entries(labels).map(([key,label])=>`${label}: ${typeof value.latency![key]==='number'?(Number(value.latency![key])/1000).toFixed(2)+'秒':'未計測'}`);body.append(el('pre','ai-metadata',lines.join('\n')))}
     this.evidenceBody.replaceChildren(body)
   }
-  dispose(){this.disposed=true;this.offOutside?.();for(const entry of this.thumbnails.values())URL.revokeObjectURL(entry.url);this.thumbnails.clear();this.attachmentCards.clear();if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
+  dispose(){this.disposed=true;this.offOutside?.();for(const c of new Set([...this.covers.values()].map(x=>x.url)))if(c)URL.revokeObjectURL(c);this.covers.clear();for(const entry of this.thumbnails.values())URL.revokeObjectURL(entry.url);this.thumbnails.clear();this.attachmentCards.clear();if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
 }
