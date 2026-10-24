@@ -47,7 +47,12 @@ export interface AIBackend {
   delete(sourceId: string, signal: AbortSignal): Promise<void>
   upload(upload: Upload, file: Blob, signal: AbortSignal, progress: (percent: number) => void): Promise<void>
   chat(request: ChatRequest, signal: AbortSignal, delta: (text: string) => void, progress?: (p:ChatProgress)=>void): Promise<ChatReply>
+  /** 会話の履歴(文章だけ)を、アプリとWebで同期する。対応していない接続(デモなど)では省略できる */
+  saveMessages?(context: CourseContext, rows: SyncedMessage[], signal: AbortSignal): Promise<void>
+  listMessages?(context: CourseContext, signal: AbortSignal): Promise<RemoteMessage[]>
 }
+export interface SyncedMessage { id: string; role: 'user' | 'assistant'; kind: 'text' | 'image' | 'audio' | 'pdf' | 'note'; text: string; imageCount?: number; createdAt: number }
+export interface RemoteMessage extends SyncedMessage { dayID: number; semester?: string; imageCount: number }
 export interface LocalMaterial {
   id: string; uid: string; courseKey: string; context: CourseContext; clientRequestId: string
   type: SourceKind; title: string; mime: string; size: number; text?: string; file?: Blob; durationSeconds?: number
@@ -57,4 +62,8 @@ export interface LocalMaterial {
 export interface Message {
   id: string; uid: string; courseKey: string; role: 'user' | 'assistant'; text: string
   sessionKey?: string; references?:ProjectReferences;progress?:ChatProgress;error?:string;canResume?:boolean;resumeRequest?:ChatRequest;sourceIds: string[]; state: 'sending' | 'done' | 'failed' | 'interrupted'; createdAt: number; recognition?: Recognition
+  /** 別の端末で、写真・録音・PDF・資料メモを送ったことを表す発言(本文はなく、種類と枚数だけを持つ) */
+  attachmentKind?: 'image' | 'audio' | 'pdf' | 'note'; imageCount?: number
+  /** サーバーに保存済みか(同期ずみ)。未保存の発言だけを、次の同期で送る */
+  synced?: boolean
 }

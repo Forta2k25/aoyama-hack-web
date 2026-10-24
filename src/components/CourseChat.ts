@@ -226,9 +226,16 @@ export class CourseChat {
     if(!bubble){bubble=el('article',`ai-message ai-message--${message.role}`);bubble.append(el('p','ai-message-role',message.role==='assistant'?'✦ AIハック':'あなた'),el('div','ai-message-text'),el('small','ai-message-state'));this.thread.append(bubble);this.bubbles.set(message.id,bubble)}
     const body=bubble.querySelector<HTMLElement>('.ai-message-text')!,text=message.text||(message.state==='sending'?'考えています…':'')
     if(message.role==='assistant')renderAnswer(body,text)
+    else if(message.attachmentKind){
+      // 別の端末で送った写真・録音・PDF・メモ: 中身はここには出さず、送ったことだけを、アイコンつきで見せる
+      const labels={image:'画像を送りました',audio:'録音を送りました',pdf:'PDFを送りました',note:'資料メモを送りました'} as const
+      const count=message.attachmentKind==='image'&&(message.imageCount??1)>1?`（${message.imageCount}枚）`:''
+      const icon=el('span',`ai-attachment-icon ai-attachment-icon--${message.attachmentKind}`);icon.setAttribute('aria-hidden','true')
+      body.replaceChildren(icon,el('span','ai-attachment-label',labels[message.attachmentKind]+count))
+    }
     else body.textContent=text
     bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?(message.progress?.status==='continuing'?'回答が長いため続きを生成しています…':message.progress?.status==='retrying'?'接続が一時的に切れました。続きを再取得しています…':'返信中…'):message.state==='failed'?'回答を生成できませんでした。'+(message.error||''):message.state==='interrupted'?'回答が途中で中断されました。表示済みの内容は保持しています。'+(message.error?' '+message.error:''):message.recognition?(this.root.closest('.ai-chat-screen--ask')?compactMetadataText(message.recognition):metadataText(message.recognition)):''
-    if(message.role==='user'&&this.root.closest('.ai-chat-screen--ask')&&!bubble.querySelector('.ai-message-actions')){
+    if(message.role==='user'&&!message.attachmentKind&&this.root.closest('.ai-chat-screen--ask')&&!bubble.querySelector('.ai-message-actions')){
       // 自分の発言: カーソルを合わせると、コピーと編集(編集したら、もう一度送る)が出る
       const actions=el('div','ai-message-actions ai-message-actions--user'),current=()=>this.controller?.messages.find(row=>row.id===message.id)?.text??message.text
       const copy=button('',()=>void copyAnswer(current()).then(()=>{copy.title='コピーしました'}).catch(()=>{copy.title='コピーできませんでした'}),'ai-small-button ai-icon-btn ai-icon-copy'),edit=button('',()=>this.editUserMessage(bubble!,current()),'ai-small-button ai-icon-btn ai-icon-edit')

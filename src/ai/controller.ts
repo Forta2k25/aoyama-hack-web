@@ -1,3 +1,4 @@
+import {syncConversation} from './message-sync'
 import {syllabusContextLimit} from './syllabus'
 import {ChatStreamError} from './chat-stream'
 import { prepareImageUpload } from './image'
@@ -61,6 +62,7 @@ export class AIController {
       }
     }catch(e){if(!this.lifetime.signal.aborted)this.error=safeError(e)}
     finally{this.loading=false;this.notify();if(!this.lifetime.signal.aborted)this.schedule()}
+    void this.syncMessages()
   }
   private applyStatus(row:LocalMaterial){
     const status=row.remote?.status
@@ -182,7 +184,7 @@ export class AIController {
       if(message){message.state=reply.signal.aborted||message.text?'interrupted':'failed';message.canResume=e instanceof ChatStreamError&&e.canResume;message.error=safeError(e instanceof ChatStreamError?e.original:e);message.progress=undefined;message.text=message.text||message.error}
       this.error=safeError(e instanceof ChatStreamError?e.original:e);return false
     }finally{
-      try{if(message)await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;clearTimeout(this.streamTimer);this.streamTimer=undefined;this.notify()}
+      try{if(message)await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;clearTimeout(this.streamTimer);this.streamTimer=undefined;this.notify();if(message?.state==='done')void this.syncMessages()}
     }
   }
 
@@ -200,6 +202,18 @@ export class AIController {
     finally{try{await this.store.putMessage(message)}finally{this.lifetime.signal.removeEventListener('abort',stop);this.sending=false;this.reply=undefined;clearTimeout(this.streamTimer);this.streamTimer=undefined;this.notify()}}
   }
 
+  /** アプリや他の端末と、会話の履歴(文章)を合わせる。失敗しても、会話は続けられる(次の機会に、もう一度試す)。 */
+  private syncing=false
+  async syncMessages(){
+    if(this.syncing||this.lifetime.signal.aborted||!this.backend.saveMessages)return
+    this.syncing=true
+    try{
+      const added=await syncConversation(this.backend,this.store,this.uid,this.context,this.lifetime.signal)
+      const mine=added.filter(m=>m.sessionKey===this.threadKey&&!this.messages.some(x=>x.id===m.id))
+      if(mine.length){this.messages=[...this.messages,...mine].sort((a,b)=>a.createdAt-b.createdAt);this.notify()}
+    }catch{/* 通信に失敗しても、会話は止めない */}
+    finally{this.syncing=false}
+  }
   stop(){this.reply?.abort()}
   dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer);clearTimeout(this.streamTimer)}
 }

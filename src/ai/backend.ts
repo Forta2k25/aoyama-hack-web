@@ -2,9 +2,9 @@ import {receiveChat} from './chat-stream'
 import { validateUpload } from './upload'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { auth } from '../firebase'
-import type { AIBackend, ChatReply, ChatRequest, ChatProgress, CourseContext, Evidence, Receipt, RemoteSource, Upload } from './types'
+import type { AIBackend, ChatReply, ChatRequest, ChatProgress, CourseContext, Evidence, Receipt, RemoteMessage, RemoteSource, SyncedMessage, Upload } from './types'
 
-const callableNames = new Set(['aiCreateSource','aiCompleteSource','aiRetrySource','aiGetSource','aiListSources','aiGetEvidence','aiDeleteSource','aiChat'])
+const callableNames = new Set(['aiCreateSource','aiCompleteSource','aiRetrySource','aiGetSource','aiListSources','aiGetEvidence','aiDeleteSource','aiChat','aiSaveMessages','aiListMessages'])
 export class FirebaseAIBackend implements AIBackend {
   readonly demo=false
   projectContextProtocol?:string
@@ -17,6 +17,15 @@ export class FirebaseAIBackend implements AIBackend {
     this.check(signal);if(!callableNames.has(name))throw Error('Unsupported callable')
     const result=await httpsCallable<unknown,T>(this.functions,name,{timeout:120000})(data)
     this.check(signal);return result.data
+  }
+  async saveMessages(context:CourseContext,rows:SyncedMessage[],signal:AbortSignal){
+    for(let i=0;i<rows.length;i+=50)await this.call('aiSaveMessages',{context,messages:rows.slice(i,i+50)},signal)
+  }
+  async listMessages(context:CourseContext,signal:AbortSignal){
+    const items:RemoteMessage[]=[];let after:number|null|undefined;const seen=new Set<number>()
+    do{const page=await this.call<{items:RemoteMessage[];nextCursor:number|null}>('aiListMessages',{context,...(after!==undefined&&after!==null?{after}:{})},signal)
+      items.push(...page.items);after=page.nextCursor;if(after!==null&&after!==undefined){if(seen.has(after)||seen.size>=50)break;seen.add(after)}}while(after!==null&&after!==undefined)
+    return items
   }
   create(data:Parameters<AIBackend['create']>[0],signal:AbortSignal){return this.call<Receipt>('aiCreateSource',data,signal)}
   complete(sourceId:string,uploadMs:number|undefined,signal:AbortSignal){return this.call<RemoteSource>('aiCompleteSource',{sourceId,...(uploadMs!==undefined?{uploadMs}:{})},signal)}
