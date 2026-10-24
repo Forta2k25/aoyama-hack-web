@@ -1548,3 +1548,6 @@ body.modal-open { overflow: hidden; }
 .tt-cell { border-radius: 8px; }
 .tt-day-header--today { border-radius: 8px; }
 .tt-cell-filled .tt-room { border-radius: 6px; }
+.tt-cell { border-radius: 5px; }
+.tt-day-header--today { border-radius: 5px; }
+.tt-cell-filled .tt-room { border-radius: 4px; }
