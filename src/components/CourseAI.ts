@@ -70,6 +70,11 @@ export class CourseAI {
   this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(ask){this.dispose();return}if(this.screen===screen&&!this.disposed)void this.showList()})
   document.body.classList.add('ai-chat-open');screen.showModal()
   this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions,this.syllabus.then(reference=>chatSyllabus(reference,this.course,meeting.number)),lectureSchedule(this.course,this.context!,this.settings).meetings);await this.chat.mount()
+  if(ask){
+   // ChatGPTのように、「＋」・入力欄・送信を1行に並べる。文章が増えたら、入力欄が縦に伸びる。
+   const input=host.querySelector<HTMLTextAreaElement>('.ai-composer-input')
+   if(input){input.rows=1;const fit=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px'};input.addEventListener('input',fit);fit()}
+  }
  }
  private settingsForm(){
   const details=node('details','ai-schedule-settings'),summary=node('summary','','授業日程を調整'),form=node('form'),first=node('input'),campus=node('select'),skip=node('textarea'),status=node('p','ai-status')
