@@ -7,7 +7,7 @@ export interface MaterialProgress {
 /** Progress comes only from upload bytes or completed backend pages, never elapsed-time estimates. */
 export function materialProgress(row:LocalMaterial,uploadPercent?:number):MaterialProgress {
   if(row.state==='ready')return {label:`✓ ${row.type==='note'?'保存':'アップロード'}・${row.remote?.status==='partial_ready'?'一部解析完了':'解析完了'}`}
-  if(row.state==='failed')return {label:'送信/解析失敗・再送できます'}
+  if(row.state==='failed')return {label:`送信/解析失敗・再送できます${row.error?`（${row.error}）`:''}`}
   if(row.state==='uploading'){
     const value=typeof uploadPercent==='number'&&Number.isFinite(uploadPercent)&&uploadPercent>=0&&uploadPercent<=100?uploadPercent:undefined
     return {label:value===undefined?'送信準備中…':`アップロード中 ${value}%`,progress:{value,max:100,description:'資料のアップロード進捗'}}
