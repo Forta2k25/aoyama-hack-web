@@ -9,6 +9,8 @@ export class FirebaseAIBackend implements AIBackend {
   readonly demo=false
   projectContextProtocol?:string
   resolvedCourseOfferingId?:string
+  /** 会話の保存先の授業ID(aiListMessages が返す)。リアルタイムの購読に使う */
+  messagesOfferingId?:string
   private readonly functions=getFunctions(auth.app,'asia-northeast1')
   private readonly uid:string
   constructor(uid:string) {this.uid=uid}
@@ -23,7 +25,8 @@ export class FirebaseAIBackend implements AIBackend {
   }
   async listMessages(context:CourseContext,signal:AbortSignal,since?:number){
     const items:RemoteMessage[]=[];let after:number|null|undefined=since;const seen=new Set<number>()
-    do{const page:{items:RemoteMessage[];nextCursor:number|null}=await this.call<{items:RemoteMessage[];nextCursor:number|null}>('aiListMessages',{context,...(after!==undefined&&after!==null?{after}:{})},signal)
+    do{const page:{items:RemoteMessage[];nextCursor:number|null;courseOfferingId?:string}=await this.call<{items:RemoteMessage[];nextCursor:number|null;courseOfferingId?:string}>('aiListMessages',{context,...(after!==undefined&&after!==null?{after}:{})},signal)
+      if(page.courseOfferingId)this.messagesOfferingId=page.courseOfferingId
       items.push(...page.items);after=page.nextCursor;if(after!==null&&after!==undefined){if(seen.has(after)||seen.size>=50)break;seen.add(after)}}while(after!==null&&after!==undefined)
     return items
   }

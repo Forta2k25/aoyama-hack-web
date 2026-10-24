@@ -65,11 +65,22 @@ export class AIController {
     void this.syncMessages()
     this.startMessagePolling()
   }
-  /** チャットを開いている間、アプリなど別の端末の発言が届いていないかを、3秒ごとに確かめる(新しい分だけ取る)。画面が隠れている間は、止める。 */
+  /** 購読が切れたときの保険。30秒ごとに、アプリなど別の端末の発言が届いていないかを確かめる(新しい分だけ取る)。画面が隠れている間は、止める。 */
   private pollTimer?:ReturnType<typeof setInterval>
   private startMessagePolling(){
     if(this.pollTimer||!this.backend.listMessages||this.backend.demo)return
-    this.pollTimer=setInterval(()=>{if(this.lifetime.signal.aborted||this.sending||(typeof document!=='undefined'&&document.visibilityState==='hidden'))return;void this.syncMessages()},3000)
+    this.pollTimer=setInterval(()=>{if(this.lifetime.signal.aborted||this.sending||(typeof document!=='undefined'&&document.visibilityState==='hidden'))return;void this.syncMessages()},30000)
+  }
+  private unsubscribeMessages?:()=>void
+  /** 別の端末の発言を、リアルタイムで知る(本人の分だけ読める購読)。知らせが来たら、新しい分を取る。購読できない間は、30秒ごとの確認が代わりをする。 */
+  private async subscribeMessages(){
+    const offering=this.backend.messagesOfferingId
+    if(this.unsubscribeMessages||!offering||this.backend.demo||this.lifetime.signal.aborted)return
+    try{
+      const {subscribeConversation}=await import('./message-subscription')
+      if(this.lifetime.signal.aborted||this.unsubscribeMessages)return
+      this.unsubscribeMessages=subscribeConversation(this.uid,offering,()=>{void this.syncMessages()})
+    }catch{/* 購読できなくても、定期の確認が働く */}
   }
   private applyStatus(row:LocalMaterial){
     const status=row.remote?.status
@@ -216,11 +227,12 @@ export class AIController {
     this.syncing=true
     try{
       const added=await syncConversation(this.backend,this.store,this.uid,this.context,this.lifetime.signal)
+      void this.subscribeMessages()
       const mine=added.filter(m=>m.sessionKey===this.threadKey&&!this.messages.some(x=>x.id===m.id))
       if(mine.length){this.messages=[...this.messages,...mine].sort((a,b)=>a.createdAt-b.createdAt);this.notify()}
     }catch{/* 通信に失敗しても、会話は止めない */}
     finally{this.syncing=false}
   }
   stop(){this.reply?.abort()}
-  dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer);clearTimeout(this.streamTimer);clearInterval(this.pollTimer);this.pollTimer=undefined}
+  dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer);clearTimeout(this.streamTimer);clearInterval(this.pollTimer);this.pollTimer=undefined;this.unsubscribeMessages?.();this.unsubscribeMessages=undefined}
 }

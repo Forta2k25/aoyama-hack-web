@@ -38,6 +38,8 @@ export interface AIBackend {
   readonly demo: boolean
   readonly projectContextProtocol?:string
   readonly resolvedCourseOfferingId?:string
+  /** 会話の保存先の授業ID。会話を一度取ったあとに入る(リアルタイムの購読に使う) */
+  readonly messagesOfferingId?:string
   create(data: { clientRequestId: string; type: SourceKind; title: string; mime: string; size: number; text?: string; durationSeconds?: number; context: CourseContext }, signal: AbortSignal): Promise<Receipt>
   complete(sourceId: string, uploadMs: number | undefined, signal: AbortSignal): Promise<RemoteSource>
   retry(sourceId: string, signal: AbortSignal): Promise<Receipt>
