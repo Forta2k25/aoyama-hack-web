@@ -81,7 +81,7 @@ export class CourseChat {
       if(this.disposed)return
       this.syllabusNotice.hidden=reference.status==='absent'
       this.syllabusNotice.textContent=reference.status==='ready'?'この授業のシラバスを回答の参照情報に含めています。':'シラバスを取得できなかったため、今回は含めません。授業を開き直すと再確認します。'
-      this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render(),reference.text);await this.controller.init();this.render()
+      this.controller=new AIController(this.uid,context,this.backend,this.store,()=>this.render(),reference.text);await this.controller.init();this.render();if(!this.disposed&&!this.textarea.disabled&&!this.composerCollapsed)this.textarea.focus({preventScroll:true})
     }catch(e){this.initError=safeError(e);this.status.textContent=this.initError}
   }
   private setComposerCollapsed(collapsed:boolean){
