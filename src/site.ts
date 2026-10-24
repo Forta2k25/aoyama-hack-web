@@ -378,7 +378,12 @@ onUserChange((user) => {
     }
   }
 
-  // トップ(/)と /mypage では時間割を描画(ログインしていなくても空の表が見える)
+  // 共有された時間割(/t/{id})は、ログインなしで見られる
+if (pathname.startsWith('/t/')) {
+  void import('./components/SharedTimetable').then(({ renderSharedTimetable }) => renderSharedTimetable(pathname.slice(3).replace(/\/$/, '')))
+}
+
+// トップ(/)と /mypage では時間割を描画(ログインしていなくても空の表が見える)
   if (pathname === '/mypage' || pathname === '/') {
     renderMyPage(user).then(() => {
       document.getElementById('mypage-signin-btn')?.addEventListener('click', () => {

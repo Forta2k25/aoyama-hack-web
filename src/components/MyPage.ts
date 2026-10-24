@@ -539,10 +539,10 @@ const PERIOD_TIMES: Record<number, [string, string]> = {
   7: ['20:10', '21:40'],
 }
 
-function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false, hideLabel = false, editable = false): string {
+export function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false, hideLabel = false, editable = false, gridOverride?: { days: number[]; periods: number[] }): string {
   const grid0 = visibleGrid(loadTimetableSettings(), slots)
-  const days = guest ? (hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS) : grid0.days
-  const periods = guest ? Array.from({ length: MAX_PERIODS }, (_, i) => i + 1) : grid0.periods
+  const days = gridOverride?.days ?? (guest ? (hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS) : grid0.days)
+  const periods = gridOverride?.periods ?? (guest ? Array.from({ length: MAX_PERIODS }, (_, i) => i + 1) : grid0.periods)
 
   // slots を day/period でインデックス
   const grid: Record<string, TimetableSlot> = {}
@@ -706,9 +706,13 @@ export async function renderMyPage(user: AuthUser) {
       <div class="mypage-guest-toolbar">
         <span class="eyebrow mypage-guest-term">${label}</span>
         ${tabsBar}
+        <span class="mypage-toolbar-right">
+        <button class="btn btn-ghost mypage-settings-btn" id="mypage-share-btn" type="button" aria-label="共有">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg><span>共有</span>
+        </button>
         <button class="btn btn-ghost mypage-settings-btn" id="mypage-settings-btn" type="button" aria-label="設定">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>設定</span>
-        </button>
+        </button></span>
       </div>
     `
     const friendsPanel = `
@@ -766,6 +770,9 @@ export async function renderMyPage(user: AuthUser) {
       })
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape'&&!document.querySelector('dialog[open]')) closeCourseModal() })
     }
+    document.getElementById('mypage-share-btn')?.addEventListener('click', () => {
+      void import('./ShareDialog').then(({ openShareDialog }) => openShareDialog(user.uid, label, slots))
+    })
     document.getElementById('mypage-settings-btn')?.addEventListener('click', () => {
       openTimetableSettings(slots, label, () => { void renderMyPage(user) }, () => {
         void import('../auth').then(({ signOutUser }) => signOutUser()).then(() => { window.location.href = '/' })

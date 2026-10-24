@@ -1,3 +1,4 @@
+import { sharedTimetablePageMarkup } from './SharedTimetable'
 import { APP_STORE_URL } from '../constants/links'
 import { SITE_SHELL_ID } from './SplashScreen'
 import { mypageMarkup } from './MyPage'
@@ -932,6 +933,7 @@ const legalPageMarkup = (page: { title: string; description: string }, pathname:
 }
 
 const pageMarkup = (pathname: string) => {
+  if (pathname.startsWith('/t/')) return sharedTimetablePageMarkup
   if (pathname === '/') return mypageMarkup()
   if (pathname === '/aoyama-hack') return landingMarkup
   if (pathname === '/about') return aboutPageMarkup
@@ -947,7 +949,7 @@ const pageMarkup = (pathname: string) => {
 
 export const getSiteLayoutMarkup = (pathname = '/') => {
   const normalizedPathname = pathname === '/' ? '/' : pathname.replace(/\/$/, '')
-  const isStandalonePage = normalizedPathname in pages
+  const isStandalonePage = normalizedPathname in pages || normalizedPathname.startsWith('/t/')
 
   return `
     <div id="${SITE_SHELL_ID}" class="site-content">
