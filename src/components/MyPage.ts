@@ -369,18 +369,17 @@ const takeAskPick = () => { const picked = _askPicked; _askPicked = false; retur
 // コマを押したとき: 「AIに質問する」から選んだ場合は、ChatGPTのような全画面のチャットを開く。それ以外は、授業の詳細。
 function openCourseFromCell(course: import('../timetable').Course) {
   if (takeAskPick()) {
-    void import('./AskChat').then(({ openAskChat }) => openAskChat(course)).then((opened) => { if (!opened) openCourseModal(course, true, 'syllabus', true) }).catch(() => openCourseModal(course, true, 'syllabus', true))
+    void import('./AskChat').then(({ openAskChat }) => openAskChat(course)).then((opened) => { if (!opened) openCourseModal(course) }).catch(() => openCourseModal(course))
     return
   }
-  openCourseModal(course, true, 'syllabus', true)
+  openCourseModal(course)
 }
 
 let _courseRequest=0
 let _activeAI: CourseAI | undefined
 let _outsideTimer: ReturnType<typeof setTimeout> | undefined
 
-// aiFullscreen: 「AIチャット」のタブを押したとき、横のパネルに授業回の一覧を出さず、ChatGPTのような全画面のチャットを開く
-export function openCourseModal(course: import('../timetable').Course, allowAI=true, initialTab: 'syllabus' | 'ai'='syllabus', aiFullscreen=false) {
+export function openCourseModal(course: import('../timetable').Course, allowAI=true, initialTab: 'syllabus' | 'ai'='syllabus') {
   closeCourseModal()
   const ticket=++_courseRequest
   const timetableActive=!document.getElementById('tab-panel-timetable')?.hasAttribute('hidden')
@@ -425,7 +424,7 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
   for(const [tab,title]of [['syllabus','シラバス'],['ai','AIチャット ✦']] as const){
     if(tab==='ai'&&!available)continue
     const button=document.createElement('button');button.type='button';button.textContent=title;button.setAttribute('role','tab');button.id=`course-${ticket}-tab-${tab}`;button.setAttribute('aria-controls',`course-${ticket}-panel-${tab}`)
-    button.addEventListener('click',()=>{if(tab==='ai'&&aiFullscreen){void import('./AskChat').then(({openAskChat})=>openAskChat(course)).then(opened=>{if(!opened)selectTab('ai')}).catch(()=>selectTab('ai'));return}selectTab(tab)});button.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const next=activeTab==='syllabus'?'ai':'syllabus';if(available){if(next==='ai'&&aiFullscreen)buttons[1].click();else{selectTab(next);buttons[next==='ai'?1:0].focus()}}}});buttons.push(button);tabs.append(button)
+    button.addEventListener('click',()=>selectTab(tab));button.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const next=activeTab==='syllabus'?'ai':'syllabus';if(available){selectTab(next);buttons[next==='ai'?1:0].focus()}}});buttons.push(button);tabs.append(button)
   }
   syllabusHost.id=`course-${ticket}-panel-syllabus`;if(available){syllabusHost.setAttribute('role','tabpanel');syllabusHost.setAttribute('aria-labelledby',`course-${ticket}-tab-syllabus`)}
   if(available){aiHost=document.createElement('div');aiHost.id=`course-${ticket}-panel-ai`;aiHost.setAttribute('role','tabpanel');aiHost.setAttribute('aria-labelledby',`course-${ticket}-tab-ai`);aiHost.hidden=true}
@@ -635,7 +634,7 @@ export async function renderMyPage(user: AuthUser) {
     document.getElementById('tab-timetable')?.addEventListener('click', () => showGuestTab('timetable'))
     document.getElementById('tab-syllabus')?.addEventListener('click', () => showGuestTab('syllabus'))
     if (location.hash === '#syllabus') showGuestTab('syllabus')
-    initSyllabusSearch((course) => openCourseModal(course, true, 'syllabus', true))
+    initSyllabusSearch(openCourseModal)
     // 空きコマの「＋」: 授業を選んで、この端末に保存する
     container.querySelectorAll<HTMLButtonElement>('.tt-add').forEach((button) => {
       button.addEventListener('click', () => {
@@ -766,7 +765,7 @@ export async function renderMyPage(user: AuthUser) {
     if (initHash === '#syllabus') showTab('syllabus', false)
     else if (initHash === '#friends') showTab('friends', false)
 
-    initSyllabusSearch((course) => openCourseModal(course, true, 'syllabus', true))
+    initSyllabusSearch(openCourseModal)
   } catch {
     container.innerHTML = `
       <div class="mypage-error">
