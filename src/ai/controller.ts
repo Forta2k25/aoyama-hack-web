@@ -139,6 +139,8 @@ export class AIController {
       row.state='uploading';row.error=undefined;await this.save(row)
       if(row.type==='audio'&&!row.durationSeconds){if(!row.file)throw Error('WEB_再送する音声原本がありません。m4aから追加し直してください。');row.durationSeconds=await audioDurationSeconds(row.file);await this.save(row)}
       const receipt=row.remote?await this.backend.retry(row.remote.sourceId,request.signal):await this.backend.create({clientRequestId:row.clientRequestId,type:row.type,title:row.title,mime:row.mime,size:row.size,...(row.text?{text:row.text}:{}),...(row.durationSeconds?{durationSeconds:Math.ceil(row.durationSeconds)}:{}),context:row.context},request.signal)
+      // 再送APIは、アップロード先を返さない。原本が送れていない(送信待ちのまま)ときは、同じ送信IDで作成を呼び直して、新しい送信先をもらう(サーバー側で、同じ資料に対応づく)。
+      if(row.remote&&!receipt.upload&&receipt.status==='awaiting_upload'&&row.type!=='note'&&row.file)Object.assign(receipt,await this.backend.create({clientRequestId:row.clientRequestId,type:row.type,title:row.title,mime:row.mime,size:row.size,...(row.durationSeconds?{durationSeconds:Math.ceil(row.durationSeconds)}:{}),context:row.context},request.signal))
       request.signal.throwIfAborted();row.remote=persistentSource(receipt);await this.save(row)
       if(row.wantsDeletion){await this.removeRemoteAndLocal(row);return}
       let uploadMs:number|undefined
