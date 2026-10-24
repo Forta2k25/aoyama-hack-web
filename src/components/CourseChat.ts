@@ -70,7 +70,21 @@ export class CourseChat {
     this.composerBody.id=`ai-composer-body-${crypto.randomUUID()}`;this.composerToggle.setAttribute('aria-controls',this.composerBody.id);this.composerToggle.setAttribute('aria-expanded','true')
     const composerHeader=el('div','ai-composer-header');composerHeader.append(this.composerToggle,this.stop)
     tools.append(menu,this.send);this.composerBody.append(this.attachments,this.textarea,tools,fileInput);this.composer.append(composerHeader,this.sendWait,this.composerBody)
-    this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled||this.composerCollapsed)return;const hasFile=[...this.attachmentCards.values()].some(card=>card.isConnected&&card.dataset.state==='ready'),text=this.textarea.value.trim()?this.textarea.value:hasFile?'添付した資料の内容を、要点がわかるようにまとめて。':'';if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed){for(const id of this.attachmentCards.keys())this.dismissedAttachments.add(id);this.renderAttachments()}if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
+    this.composer.addEventListener('submit',e=>{
+      e.preventDefault();if(this.send.disabled||this.composerCollapsed)return
+      // 入力欄に出ているカード(送れる状態のもの)。文章がなくても、これがあれば送れる。
+      const shown=[...this.attachmentCards.entries()].filter(([,card])=>card.isConnected&&['ready','processing'].includes(card.dataset.state??'')),text=this.textarea.value
+      if(!text.trim()&&!shown.length)return
+      const rows=shown.map(([id])=>this.controller!.materials.find(m=>m.id===id)).filter((row):row is NonNullable<typeof row>=>!!row)
+      const kind=rows[0]?.type??'note',attachment=shown.length?{kind,count:rows.filter(r=>r.type===kind).length||1}:undefined
+      // 送った瞬間に、入力欄から資料を片づける(返信を待たない)。失敗したら戻す。
+      for(const [id] of shown)this.dismissedAttachments.add(id)
+      this.textarea.value='';this.renderAttachments()
+      void this.perform(async()=>{
+        const sent=await this.controller!.send(text,'reply',attachment)
+        if(!sent&&!this.disposed){for(const [id] of shown)this.dismissedAttachments.delete(id);if(!this.textarea.value)this.textarea.value=text;this.renderAttachments()}
+      })
+    })
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);this.closeMenu(menu)})
     const overlay=el('div','ai-drop-overlay');overlay.hidden=true;overlay.setAttribute('aria-hidden','true')
     overlay.append(el('div','ai-drop-icon'),el('strong','','何でも追加できます'),el('span','','ここにファイルをドロップすると、会話に追加されます'))

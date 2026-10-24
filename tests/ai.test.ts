@@ -52,11 +52,12 @@ test('failed/interrupted file upload reuses its source receipt and never repeats
   const row=await c.stageFile(new File(['synthetic binary'],'image.png',{type:'image/png'}));await until(()=>row.state==='failed');const id=row.remote!.sourceId
   backend.failUpload=false;await c.retry(row.id);assert.equal(row.remote!.sourceId,id);assert.equal(backend.createIds.length,1);c.dispose()
 })
-test('processing pages block chat and intro instead of silently sending without those sources',async()=>{
+test('analysis runs in the background: send is accepted, the answer waits for ready sources, intro still needs ready ones',async()=>{
   const backend=new Backend(),c=new AIController(crypto.randomUUID(),context,backend,new AIStore(),()=>{});await c.init()
   const row=await c.stageNote('架空の途中資料');await until(()=>row.state==='processing');c.selected.add(row.id)
   await assert.rejects(c.send('','intro'));assert.equal(backend.calls.length,0)
-  await assert.rejects(c.send('質問'),/アップロード・解析の完了後/);assert.equal(backend.calls.length,0);assert.equal(c.messages.length,0);c.dispose()
+  const sending=c.send('質問');await until(()=>c.messages.length===2);assert.equal(backend.calls.length,0)
+  row.state='ready';row.remote!.status='ready';assert.equal(await sending,true);assert.equal(backend.calls.length,1);assert(backend.calls[0].sourceIds.includes(row.remote!.sourceId));c.dispose()
 })
 test('deleting while create is in flight captures the receipt and deletes before upload',async()=>{
   const backend=new Backend();let release!:()=>void;backend.createWait=new Promise<void>(resolve=>{release=resolve})

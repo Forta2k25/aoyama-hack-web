@@ -67,7 +67,7 @@ test('a restored awaiting-upload receipt never displays an upload-success badge 
  try{const tray=root.querySelector<HTMLElement>('.ai-composer-attachments')!;assert.match(tray.textContent!,/アップロード未完了/);assert(!tray.textContent!.includes('アップロード済み'));assert(!tray.textContent!.includes('解析完了'));assert(!tray.querySelector<HTMLButtonElement>('.ai-attachment-retry')!.hidden)}finally{view.dispose()}
 })
 
-test('composer and Enter submissions are blocked during upload/analysis, show backend page progress and keep the draft until ready',async()=>{
+test('submissions are blocked only during upload; analysis continues in the background and the answer waits for ready',async()=>{
  const root=document.getElementById('root')!,backend=new Backend(),view=new CourseChat(root,course,crypto.randomUUID(),backend,new AIStore(),context);await view.mount();const c=(view as any).controller
  let chats=0;backend.chat=async()=>{chats++;return {text:'完了資料を使った架空回答'}}
  try{
@@ -75,8 +75,8 @@ test('composer and Enter submissions are blocked during upload/analysis, show ba
   const send=root.querySelector<HTMLButtonElement>('.ai-send')!,form=root.querySelector('form')!,input=root.querySelector<HTMLTextAreaElement>('.ai-composer-input')!,wait=root.querySelector<HTMLElement>('.ai-send-wait')!
   input.value='この資料を要約して';assert(send.disabled);assert(!input.disabled);assert(!wait.hidden);form.requestSubmit();input.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await Promise.resolve();assert.equal(chats,0);assert.equal(c.messages.length,0);assert.equal(input.value,'この資料を要約して')
   backend.release();await until(()=>row.state==='processing');row.remote.status='extracting';row.remote.previewProgress={completed:12,total:30};(view as any).render()
-  const tray=root.querySelector<HTMLElement>('.ai-composer-attachments')!,progress=tray.querySelector('progress')!;assert.match(tray.textContent!,/12\/30ページ解析済み（40%）/);assert.equal(progress.value,12);assert.equal(progress.max,30);assert(send.disabled)
-  row.remote.status='indexing';row.remote.previewProgress={completed:30,total:30};(view as any).render();assert(send.disabled);assert.match(tray.textContent!,/解析結果を保存中/);form.requestSubmit();assert.equal(chats,0)
-  backend.ready=true;await c.poll();assert(!send.disabled);assert(wait.hidden);assert(tray.querySelector<HTMLProgressElement>('progress')!.hidden);assert.equal(input.value,'この資料を要約して');form.requestSubmit();await until(()=>chats===1&&input.value==='');assert(c.messages[0].sourceIds.includes(row.remote.sourceId))
+  const tray=root.querySelector<HTMLElement>('.ai-composer-attachments')!,progress=tray.querySelector('progress')!;assert.match(tray.textContent!,/12\/30ページ解析済み（40%）/);assert.equal(progress.value,12);assert.equal(progress.max,30);assert(!send.disabled)
+  row.remote.status='indexing';row.remote.previewProgress={completed:30,total:30};(view as any).render();assert(!send.disabled);assert.match(tray.textContent!,/解析結果を保存中/);form.requestSubmit();await until(()=>c.messages.length===2);assert.equal(chats,0);assert.equal(input.value,'')
+  backend.ready=true;await c.poll();await until(()=>chats===1);assert(wait.hidden);assert(c.messages[0].sourceIds.includes(row.remote.sourceId))
  }finally{view.dispose()}
 })

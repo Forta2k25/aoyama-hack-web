@@ -36,8 +36,10 @@ export class AIController {
   private notifyStream(){if(this.streamTimer===undefined)this.streamTimer=setTimeout(()=>{this.streamTimer=undefined;this.notify()},32)}
   private notify(){if(!this.lifetime.signal.aborted)this.changed()}
   private async save(row:LocalMaterial){await this.store.putMaterial(row);this.notify()}
-  get pendingMaterialCount(){return this.preparingMaterials.size+this.materials.filter(row=>!row.wantsDeletion&&['local','uploading','processing'].includes(row.state)).length}
-  get materialWaitReason(){return this.pendingMaterialCount?`資料を準備中です。アップロード・解析の完了後に送信できます（残り${this.pendingMaterialCount}件）。`:''}
+  get pendingMaterialCount(){return this.preparingMaterials.size+this.materials.filter(row=>!row.wantsDeletion&&['local','uploading'].includes(row.state)).length}
+  /** アップロードは終わって、解析だけが裏で進んでいる資料。送信は止めず、回答の前に待つ。 */
+  get analyzingCount(){return this.materials.filter(row=>!row.wantsDeletion&&row.state==='processing').length}
+  get materialWaitReason(){return this.pendingMaterialCount?`資料をアップロード中です。完了後に送信できます（残り${this.pendingMaterialCount}件）。`:''}
   async init(){
     try{
       const [materials,messages]=await Promise.all([this.store.materials(this.uid,this.key,this.threadKey),this.store.messages(this.uid,this.key,this.threadKey)])
@@ -171,17 +173,20 @@ export class AIController {
     await this.store.removeMaterial(row.id);this.materials=this.materials.filter(x=>x.id!==row.id);this.library=this.library.filter(x=>x.id!==row.id);this.selected.delete(row.id);this.notify()
   }
   async evidence(id:string,preview:boolean){const row=this.projectMaterials.find(x=>x.id===id);if(!row?.remote)throw Error('WEB_未送信の資料です。');return this.backend.evidence(row.remote.sourceId,preview,this.lifetime.signal)}
-  async send(text:string,mode:'reply'|'intro'='reply'){
+  async send(text:string,mode:'reply'|'intro'='reply',attachment?:{kind:'image'|'audio'|'pdf'|'note';count:number}){
+    // 文章なしで資料だけ送ったときは、モデルにだけ、既定の依頼を渡す(画面には出さない)。
+    const asked=text.trim(),prompt=asked||(attachment?'添付した資料の内容を、要点がわかるようにまとめて。':'');text=prompt
     if(this.sending)throw Error('WEB_返信を待つか、生成を中断してください。')
     if(this.loading)throw Error('WEB_資料の確認が終わるまでお待ちください。')
     if(this.materialWaitReason)throw Error('WEB_'+this.materialWaitReason)
     if(mode==='reply'&&(!text.trim()||text.length>2000))throw Error('WEB_メッセージは1〜2,000文字で入力してください。')
-    const materials=this.materials.filter(x=>this.selected.has(x.id)&&x.remote&&['ready','partial_ready'].includes(x.remote.status)),sourceIds=materials.map(x=>x.remote!.sourceId)
+    const pick=()=>this.materials.filter(x=>this.selected.has(x.id)&&x.remote&&['ready','partial_ready'].includes(x.remote.status)).map(x=>x.remote!.sourceId)
+    let sourceIds=pick()
     const project=mode==='reply'&&this.referenceMode!=='lecture'
     if(project&&!this.projectAvailable)throw Error('WEB_授業横断の参照は、backend更新が完了するまで利用できません。')
-    if(project&&!this.scopedMaterials.some(row=>row.state==='ready'&&row.remote))throw Error('WEB_選択した参照範囲に解析完了の資料がありません。')
+    if(project&&!this.analyzingCount&&!this.scopedMaterials.some(row=>row.state==='ready'&&row.remote))throw Error('WEB_選択した参照範囲に解析完了の資料がありません。')
     const referenceScope:ProjectScope|undefined=project?{protocol:'course-project-v1',mode:this.referenceMode as 'course'|'lectures',...(this.referenceMode==='lectures'?{dayIDs:[...this.referenceDayIDs]}:{})}:undefined
-    const requestSourceIds=project?[]:sourceIds
+    let requestSourceIds=project?[]:sourceIds
     if(sourceIds.length>8)throw Error('WEB_一度に参照できる資料は8件までです。')
     if(mode==='intro'&&!sourceIds.length)throw Error('WEB_解析が完了した資料を選んでください。')
     this.lifetime.signal.throwIfAborted()
@@ -190,11 +195,18 @@ export class AIController {
     let message:Message|undefined
     try{
       if(mode==='reply'){
-        const user:Message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'user',text:text.trim(),sourceIds:requestSourceIds,state:'done',createdAt:now};await this.store.putMessage(user);this.messages.push(user);turns.push({role:'user',text:user.text});void this.syncMessages()
+        const user:Message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'user',text:text.trim(),sourceIds:requestSourceIds,state:'done',createdAt:now,...(!asked&&attachment?{attachmentKind:attachment.kind,imageCount:attachment.count}:{})};await this.store.putMessage(user);this.messages.push(user);turns.push({role:'user',text:user.text});void this.syncMessages()
       }
       reply.signal.throwIfAborted()
       message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'assistant',text:'',sourceIds:requestSourceIds,state:'sending',createdAt:now+1}
       await this.store.putMessage(message);this.messages.push(message);this.notify();reply.signal.throwIfAborted()
+      if(this.analyzingCount){
+        // 解析は裏で進めている。回答を作る前に、終わるのを待つ(送信そのものは、アップロードが終われば受け付ける)。
+        const limit=Date.now()+5*60000
+        while(this.analyzingCount){reply.signal.throwIfAborted();if(Date.now()>limit)throw Error('WEB_資料の解析に時間がかかっています。しばらくしてから、もう一度送ってください。');await new Promise(r=>setTimeout(r,500))}
+        sourceIds=pick().slice(0,8);requestSourceIds=project?[]:sourceIds;message.sourceIds=requestSourceIds
+        const sent=this.messages.find(x=>x.role==='user'&&x.createdAt===now);if(sent){sent.sourceIds=requestSourceIds;await this.store.putMessage(sent)}
+      }
       const recent=turns.slice(-12);if(recent[0]?.role==='assistant')recent.shift()
       const request={...(referenceScope?{referenceScope}:{}),...(this.syllabus?{syllabus:this.syllabus}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds:requestSourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
       message.resumeRequest=request

@@ -8,6 +8,7 @@ import type {ChatRequest,CourseContext,RemoteSource,SourceStatus} from '../src/a
 Object.assign(globalThis,{indexedDB})
 const context:CourseContext={localCourseId:'fixture-course',localCourseUUID:'fixture-course',classDocId:'00004',year:2026,courseName:'架空授業',teacherName:'架空教員',dayID:20741}
 const source=(id:string,status:SourceStatus):RemoteSource=>({sourceId:id,sourceType:'pdf',title:'架空PDF',status,courseOfferingId:'2026:00004',lectureId:String(context.dayID),previewProgress:{completed:30,total:30}})
+const until=async(check:()=>boolean)=>{for(let i=0;i<200&&!check();i++)await new Promise(r=>setTimeout(r,10));assert(check(),'did not settle')}
 class Backend extends DemoAIBackend{
  calls:ChatRequest[]=[];live=new Map<string,RemoteSource>()
  override async get(id:string){return structuredClone(this.live.get(id)!)}
@@ -16,10 +17,9 @@ class Backend extends DemoAIBackend{
 test('all pending files must finish; 100% page previews cannot admit a chat before final ready; failed/deleted intent does not deadlock',async()=>{
  const a=source('synthetic-a','extracting'),b=source('synthetic-b','queued'),backend=new Backend([{source:a},{source:b}]);backend.live.set(a.sourceId,a);backend.live.set(b.sourceId,b)
  const c=new AIController(crypto.randomUUID(),context,backend,new AIStore(),()=>{});await c.init()
- try{assert.equal(c.pendingMaterialCount,2);for(const mode of ['reply','intro'] as const)await assert.rejects(c.send('要約して',mode),/解析の完了後/);assert.equal(c.messages.length,0);assert.equal(backend.calls.length,0)
- a.status='ready';await (c as any).poll();assert.equal(c.pendingMaterialCount,1);await assert.rejects(c.send('まだ送らない'))
- b.status='indexing';await (c as any).poll();await assert.rejects(c.send('保存完了前も送らない'))
- b.status='partial_ready';await (c as any).poll();assert.equal(c.pendingMaterialCount,0);await c.send('両資料を要約');assert.deepEqual(new Set(backend.calls[0].sourceIds),new Set([a.sourceId,b.sourceId]))
+ try{assert.equal(c.pendingMaterialCount,0);assert.equal(c.analyzingCount,2);await assert.rejects(c.send('要約して','intro'));assert.equal(c.messages.length,0);assert.equal(backend.calls.length,0)
+ const sending=c.send('両資料を要約');await until(()=>c.messages.length===2);assert.equal(backend.calls.length,0)
+ a.status='ready';await (c as any).poll();assert.equal(backend.calls.length,0);b.status='partial_ready';await (c as any).poll();assert.equal(await sending,true);assert.deepEqual(new Set(backend.calls[0].sourceIds),new Set([a.sourceId,b.sourceId]))
  const row=c.materials[1];row.state='failed';assert.equal(c.pendingMaterialCount,0);row.state='processing';row.wantsDeletion=true;assert.equal(c.pendingMaterialCount,0)
  }finally{c.dispose()}
 })
