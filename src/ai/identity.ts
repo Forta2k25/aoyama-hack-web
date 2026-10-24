@@ -40,6 +40,9 @@ export const dayIDFor=(date:string)=>Math.floor(Date.parse(date+'T00:00:00Z')/86
 export const dateForDayID=(id:number)=>new Date(id*86400000).toISOString().slice(0,10)
 
 export async function resolveContext(course:Course,store:{identity(uid:string,record:string):Promise<string>},uid:string):Promise<CourseContext>{
+ // アプリが時間割に保存した授業の識別子があれば、それをそのまま使う(アプリと同じ授業として、会話・資料がそろう)
+ const appUUID=course.localCourseUUID&&isCourseUUID(course.localCourseUUID)?course.localCourseUUID.toLowerCase():undefined
+ if(appUUID)return makeContext(course,appUUID)
  const uuid=await store.identity(uid,identityRecord(course))
  return makeContext(course,uuid)
 }

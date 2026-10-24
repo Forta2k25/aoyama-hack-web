@@ -39,6 +39,8 @@ export interface Course {
   meetingDay?: number
   teachingTerm?: string
   timetableRecord?: string
+  /** アプリが、時間割の各コマに保存している、授業の識別子(UUID)。アプリとWebで、同じ授業として会話・資料をそろえるために使う */
+  localCourseUUID?: string
 }
 
 export interface TimetableSlot {
@@ -97,6 +99,7 @@ export async function fetchTimetable(uid: string): Promise<TimetableSlot[]> {
         semester: docId.endsWith('_前期') ? 'spring' : 'fall',
         meetingDay: parseInt(match[1],10),
         timetableRecord: `${docId}:${key}`,
+        localCourseUUID: typeof m['localCourseUUID'] === 'string' ? (m['localCourseUUID'] as string) : undefined,
       },
     })
   }

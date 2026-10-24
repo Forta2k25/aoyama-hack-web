@@ -47,3 +47,14 @@ test('同期に対応しない接続(デモ)では、何もしない',async()=>{
   const store=new AIStore()
   assert.deepEqual(await syncConversation({demo:true} as unknown as AIBackend,store,uid,context(),new AbortController().signal),[])
 })
+test('アプリが時間割に保存した授業の識別子があれば、Webも同じ授業として扱う(別のUUIDを作らない)',async()=>{
+  const {resolveContext}=await import('../src/ai/identity.ts')
+  const store=new AIStore(),appUUID='0A1B2C3D-4E5F-4A6B-8C7D-9E0F1A2B3C4D'
+  const base={id:'#####',title:'架空の授業',teacher:'架空教員',room:'',academicYear:2026,semester:'fall',timetableRecord:'assignedCourses.2026_後期:cells.d1p2'}
+  const withApp=await resolveContext({...base,localCourseUUID:appUUID},store,'owner-1')
+  assert.equal(withApp.localCourseUUID,appUUID.toLowerCase())
+  assert.equal(courseKey(withApp),courseKey(await resolveContext({...base,localCourseUUID:appUUID.toLowerCase()},new AIStore(),'owner-1')),'同じ識別子なら、どの端末でも、同じ授業')
+  const without=await resolveContext(base,store,'owner-1')
+  assert.notEqual(without.localCourseUUID,appUUID.toLowerCase(),'識別子が無いコマは、これまでどおり、Webの中で作る')
+  assert.notEqual(courseKey(await resolveContext({...base,localCourseUUID:'not-a-uuid'},store,'owner-1')),courseKey(withApp),'形が不正な識別子は、使わない')
+})
