@@ -349,3 +349,7 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-attachment-tools .ai-attachment-dismiss { position:relative;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:#e2e7e4;font-size:0!important;color:transparent }
 .ai-attachment-tools .ai-attachment-dismiss::before { content:'×';position:absolute;inset:0;display:grid;place-items:center;font-size:14px;line-height:1;color:#555 }
 @media (max-width:640px) { .ai-attachment-card { flex-basis:auto } }
+
+/* 完了した資料は、入力欄に出さない。解析中と失敗のときだけ、チップを出す。 */
+.ai-attachment-card[data-state=ready] { display:none }
+.ai-composer-attachments:not(:has(.ai-attachment-card:not([data-state=ready]))) { display:none }
