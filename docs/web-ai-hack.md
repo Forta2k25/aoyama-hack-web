@@ -98,7 +98,7 @@ UIのデモPASSを、外部provider実通信PASSと報告してはならない�
 
 - mainを編集しない。merge/PR作成・手動deployを行わない。
 - Vercel成功statusがmainに存在するため、branch pushが自動deployする可能性を考慮した。
-  `vercel.json` の `git.deploymentEnabled["codex/web-ai-hack"]=false` で対象branchだけ抑止する。
+  `vercel.json` の `git.deploymentEnabled["codex/web-ai-hack"]` で対象branchだけ制御する。2026-10-24にオーナーの指示で `true`(pushで確認用サイトを自動公開)にした。
   他branchや既存redirect/rewriteは変更しない。
 - AI表示はVite development/ai-preview modeのみ。`VERCEL_ENV=production` または
   Netlify `CONTEXT=production` なら、preview modeでもビルド時にOFF。

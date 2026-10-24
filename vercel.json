@@ -23,7 +23,7 @@
   ],
   "git": {
     "deploymentEnabled": {
-      "codex/web-ai-hack": false
+      "codex/web-ai-hack": true
     }
   },
   "headers": [
