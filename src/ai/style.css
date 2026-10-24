@@ -360,3 +360,6 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-drop-overlay span { font-size:14px;color:#555 }
 .ai-drop-icon { width:72px;height:72px;margin-bottom:8px;border-radius:20px;background:#e4efe9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23457861' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V5M7 10l5-5 5 5M5 19h14'/%3E%3C/svg%3E") center/40px no-repeat }
 @keyframes ai-drop-in { from { opacity:0 } to { opacity:1 } }
+
+/* 解析は裏で進める。送信を邪魔しないよう、アップロード後は、状態も進捗も出さない(失敗とアップロード中だけ出す)。 */
+.ai-attachment-card[data-state=processing] .ai-attachment-status,.ai-attachment-card[data-state=processing] progress { display:none }
