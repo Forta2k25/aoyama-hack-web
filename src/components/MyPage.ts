@@ -4,6 +4,7 @@ import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../s
 import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 import { loadGuestSlots, setGuestCourse, removeGuestCourse } from '../guestTimetable'
 import { openGuestSlotPicker } from './GuestSlotPicker'
+import { mountAskBar, setAskBarVisible } from './AskBar'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
@@ -615,9 +616,11 @@ export async function renderMyPage(user: AuthUser) {
     const showGuestTab = (tab: 'timetable' | 'syllabus') => {
       document.getElementById('tab-panel-timetable')?.toggleAttribute('hidden', tab !== 'timetable')
       document.getElementById('tab-panel-syllabus')?.toggleAttribute('hidden', tab !== 'syllabus')
+      setAskBarVisible(tab === 'timetable')
       document.getElementById('tab-timetable')?.classList.toggle('mypage-tab--active', tab === 'timetable')
       document.getElementById('tab-syllabus')?.classList.toggle('mypage-tab--active', tab === 'syllabus')
     }
+    mountAskBar(() => undefined)   // コマを選んだら、そのまま授業の詳細(下の click)が開く
     document.getElementById('tab-timetable')?.addEventListener('click', () => showGuestTab('timetable'))
     document.getElementById('tab-syllabus')?.addEventListener('click', () => showGuestTab('syllabus'))
     if (location.hash === '#syllabus') showGuestTab('syllabus')
@@ -720,6 +723,7 @@ export async function renderMyPage(user: AuthUser) {
     }
     // 現在時刻ライン（時間割タブのみ）
     startNowLine()
+    mountAskBar(() => undefined)
 
     // タブ切り替え
     let _friendsLoaded = false
@@ -730,6 +734,7 @@ export async function renderMyPage(user: AuthUser) {
         document.getElementById(`tab-${t}`)?.classList.toggle('mypage-tab--active', t === tab)
       })
       if (tab !== 'timetable') closeCourseModal()
+      setAskBarVisible(tab === 'timetable')
       if (pushHistory) history.pushState(null, '', location.search + `#${tab}`)
       // 友だちタブは初回表示時にロード
       if (tab === 'friends' && !_friendsLoaded) {

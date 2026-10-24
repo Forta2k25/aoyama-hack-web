@@ -1424,3 +1424,20 @@ body.modal-open { overflow: hidden; }
 .mypage-guest-toolbar .mypage-guest-term { margin: 0; }
 .mypage-guest-toolbar .mypage-guest-note { margin: 0 0 0 auto; font-size: 0.8rem; color: #5b6b7a; }
 @media (max-width: 640px) { .mypage-guest-toolbar .mypage-guest-note { margin-left: 0; flex-basis: 100%; } }
+
+/* 時間割の下の「AIに質問する」バー */
+.ask-bar { position: fixed; left: 50%; bottom: max(14px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 50; width: min(640px, calc(100vw - 32px)); height: 52px; display: flex; align-items: center; gap: 12px; padding: 0 8px 0 18px; box-sizing: border-box; border-radius: 26px; background: #fff; border: 1px solid #d5e0db; box-shadow: 0 6px 24px rgba(12,30,48,.12); color: #5b6b7a; cursor: pointer; transition: background .2s, border-color .2s; }
+.ask-bar[hidden] { display: none; }
+.ask-bar:focus-visible { outline: 2px solid #2d8067; outline-offset: 2px; }
+.ask-bar-icon { color: #0a6b48; font-size: 1.15rem; }
+.ask-bar-viewport { position: relative; flex: 1; height: 100%; overflow: hidden; }
+.ask-bar-text { position: absolute; inset: 0; display: flex; align-items: center; font-size: 1rem; white-space: nowrap; }
+.ask-bar-send { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: #0a6b48; color: #fff; font-size: 1.1rem; }
+.ask-bar.is-selecting { background: #e3f0e8; border-color: #0a6b48; color: #084f37; }
+.ask-bar.is-selecting .ask-bar-send { background: transparent; color: #084f37; }
+.ask-bar.is-selecting .ask-bar-send::before { content: '×'; font-size: 1.4rem; }
+.ask-bar.is-selecting .ask-bar-send { font-size: 0; }
+.tt-table.is-asking .tt-cell-filled { outline: 2.5px solid #0a6b48; outline-offset: -3px; }
+.tt-table.is-asking .tt-cell-empty { opacity: .45; pointer-events: none; }
+.has-ask-bar main.mypage { padding-bottom: 76px; }
+@media (min-width: 900px) { .is-app-top .mypage { --tt-row-h: clamp(44px, calc((100svh - 405px) / 6), 100px); } }
