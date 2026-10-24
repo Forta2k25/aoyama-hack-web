@@ -5,7 +5,7 @@ import { onUserChange, signInWithGoogle, signOutUser } from './auth'
 import { renderMyPage } from './components/MyPage'
 
 const pathname = window.location.pathname
-const shouldShowSplash = pathname === '/'
+const shouldShowSplash = pathname === '/aoyama-hack'
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `${shouldShowSplash ? splashMarkup : ''}${getSiteLayoutMarkup(pathname)}`
 
@@ -375,12 +375,12 @@ onUserChange((user) => {
     }
   }
 
-  // /mypage の場合は時間割を描画
-  if (pathname === '/mypage') {
+  // トップ(/)と /mypage では時間割を描画(ログインしていなくても空の表が見える)
+  if (pathname === '/mypage' || pathname === '/') {
     renderMyPage(user).then(() => {
       document.getElementById('mypage-signin-btn')?.addEventListener('click', () => {
         signInWithGoogle()
-          .then(() => { window.location.href = '/mypage' })
+          .then(() => { window.location.href = pathname })
           .catch(() => { window.alert('ログインに失敗しました。もう一度お試しください。') })
       })
       document.getElementById('mypage-signout-btn')?.addEventListener('click', () => {

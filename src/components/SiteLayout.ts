@@ -3,6 +3,8 @@ import { SITE_SHELL_ID } from './SplashScreen'
 import { mypageMarkup } from './MyPage'
 
 const navItems = [
+  { href: '/', label: '時間割' },
+  { href: '/aoyama-hack', label: '青山ハックについて' },
   { href: '/about', label: 'About' },
   { href: '/app', label: 'App' },
   { href: '/media', label: 'Media' },
@@ -30,6 +32,8 @@ const socialLinks = [
 ]
 
 const pages: Record<string, { title: string; description: string; legal?: boolean; mypage?: boolean }> = {
+  '/': { title: '時間割', description: '時間割', mypage: true },
+  '/aoyama-hack': { title: '青山ハックについて', description: '青山ハックについて' },
   '/about': { title: 'About', description: '青山ハックについて' },
   '/app': { title: 'App', description: '青山ハックのアプリについて' },
   '/media': { title: 'Media', description: '青山ハックのメディア活動について' },
@@ -928,6 +932,8 @@ const legalPageMarkup = (page: { title: string; description: string }, pathname:
 }
 
 const pageMarkup = (pathname: string) => {
+  if (pathname === '/') return mypageMarkup()
+  if (pathname === '/aoyama-hack') return landingMarkup
   if (pathname === '/about') return aboutPageMarkup
   if (pathname === '/app') return appPageMarkup
   if (pathname === '/media') return mediaPageMarkup
