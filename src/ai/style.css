@@ -2,8 +2,6 @@
 .course-detail-tabs { display:flex;gap:4px;background:#edf4f1;border-radius:14px;padding:5px;margin:0 20px 22px 0 }
 .course-detail-tabs button { flex:1;min-width:0;border:0;border-radius:10px;padding:10px 12px;background:transparent;color:#5a7c70;font-family:inherit;font-weight:600;font-size:14px;line-height:1.4;cursor:pointer }
 .course-detail-tabs button[aria-selected=true] { background:white;color:#18765e;box-shadow:0 2px 9px #12372916 }
-.course-side-panel.course-panel--ai { width:440px;max-width:440px }
-.course-side-panel.course-panel--ai .course-side-inner { width:440px;padding:28px 18px 0 }
 .web-ai { color:#1b3430;font-size:14px;line-height:1.6;min-width:0 }
 .web-ai [hidden] { display:none!important }
 .web-ai button,.web-ai textarea { font:inherit }
@@ -321,3 +319,11 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-chat-screen--ask[open]::backdrop { animation:ask-chat-fade .25s ease-out both }
 .ai-chat-screen--ask.ai-chat-screen--closing { animation:ask-chat-out .18s ease-in both }
 @media (prefers-reduced-motion:reduce) { .ai-chat-screen--ask[open],.ai-chat-screen--ask[open]::backdrop,.ai-chat-screen--ask.ai-chat-screen--closing { animation:none } }
+
+/* 授業の詳細の「AIチャット」タブ: 授業回の一覧だけを、すっきり見せる(パネルの幅は、シラバスと同じまま) */
+.course-side-body .web-ai .ai-course-title,.course-side-body .web-ai .ai-session-intro,.course-side-body .web-ai .ai-session-note,.course-modal-body .web-ai .ai-course-title,.course-modal-body .web-ai .ai-session-intro,.course-modal-body .web-ai .ai-session-note { display:none }
+.course-side-body .web-ai .ai-lecture-list,.course-modal-body .web-ai .ai-lecture-list { gap:6px;margin:6px 0 10px }
+.course-side-body .web-ai .ai-lecture-card,.course-modal-body .web-ai .ai-lecture-card { padding:12px 10px;border:0;border-radius:14px;background:transparent;box-shadow:none }
+.course-side-body .web-ai .ai-lecture-card:hover,.course-modal-body .web-ai .ai-lecture-card:hover,.course-side-body .web-ai .ai-lecture-card--current,.course-modal-body .web-ai .ai-lecture-card--current { background:#f1f6f3 }
+.course-side-body .web-ai .ai-lecture-number,.course-modal-body .web-ai .ai-lecture-number { width:36px;height:36px;font-size:16px;border:0 }
+.course-side-body .web-ai .ai-schedule-settings,.course-modal-body .web-ai .ai-schedule-settings { border:0;padding:4px 10px;color:#8a948f }

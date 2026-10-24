@@ -48,7 +48,7 @@ export class CourseAI {
    if(meeting.thisWeek)item.classList.add('ai-lecture-card--current')
    body.append(label,node('small','',history.length?history.at(-1)!.text.slice(0,42):sources.length?`資料 ${sources.length}件`:'まだ記録がありません'))
    const date=node('span','ai-lecture-date',dateLabel(meeting.date));if(meeting.thisWeek)date.append(node('small','','今週'+(meeting.upcoming?'・予定':'')))
-   item.append(badge,body,date);item.addEventListener('click',()=>void this.open(meeting));list.append(item)
+   item.append(badge,body,date);item.addEventListener('click',()=>void this.open(meeting,false,true));list.append(item)
   }
   this.root.replaceChildren(title,intro,notice,this.settingsForm(),list)
   if(this.legacy.length||this.legacyMaterials.length){const archive=node('details','ai-legacy-history'),summary=node('summary','','以前の履歴（授業回未確定）');archive.append(summary,node('p','','以前の識別方法で保存された履歴です。別授業が混在する可能性があるため、新しいチャットには参照・引継ぎしません。'))
@@ -60,17 +60,17 @@ export class CourseAI {
   const screen=this.screen;this.screen=undefined
   if(screen){if(screen.open)screen.close();screen.remove();document.body.classList.remove('ai-chat-open')}
  }
- private async open(meeting:LectureMeeting,ask=false){
+ private async open(meeting:LectureMeeting,ask=false,fromList=false){
   if(this.disposed)return
   this.viewTicket++;this.chat?.dispose();this.closeScreen();this.returnFocusDay=meeting.dayID
-  const screen=node('dialog',ask?'ai-chat-screen ai-chat-screen--ask':'ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles'),actions=node('div','ai-chat-screen-actions')
-  const back=node('button','ai-small-button',ask?'×':'← 授業回一覧'),heading=node('h3','ai-session-course',this.course.title),date=node('p','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
+  const styled=ask||fromList,screen=node('dialog',styled?'ai-chat-screen ai-chat-screen--ask':'ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles'),actions=node('div','ai-chat-screen-actions')
+  const back=node('button','ai-small-button',styled?'×':'← 授業回一覧'),heading=node('h3','ai-session-course',this.course.title),date=node('p','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
   heading.id=`ai-chat-title-${crypto.randomUUID()}`;screen.setAttribute('aria-labelledby',heading.id);screen.setAttribute('aria-modal','true')
-  back.type='button';if(ask)back.setAttribute('aria-label','閉じる');back.addEventListener('click',()=>{if(ask){screen.classList.add('ai-chat-screen--closing');window.setTimeout(()=>screen.close(),matchMedia('(prefers-reduced-motion: reduce)').matches?0:180)}else void this.showList()});titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
+  back.type='button';if(styled)back.setAttribute('aria-label','閉じる');back.addEventListener('click',()=>{if(styled){screen.classList.add('ai-chat-screen--closing');window.setTimeout(()=>screen.close(),matchMedia('(prefers-reduced-motion: reduce)').matches?0:180)}else void this.showList()});titles.append(heading,date);header.append(back,titles,actions);screen.append(header,host)
   this.screen=screen;this.root.replaceChildren();document.body.append(screen);screen.addEventListener('close',()=>{if(ask){this.dispose();return}if(this.screen===screen&&!this.disposed)void this.showList()})
   document.body.classList.add('ai-chat-open');screen.showModal()
   this.chat=new CourseChat(host,this.course,this.uid,this.backend,this.store,{...this.context!,dayID:meeting.dayID},actions,this.syllabus.then(reference=>chatSyllabus(reference,this.course,meeting.number)),lectureSchedule(this.course,this.context!,this.settings).meetings);await this.chat.mount()
-  if(ask){
+  if(styled){
    // ChatGPTのように、「＋」・入力欄・送信を1行に並べる。文章が増えたら、入力欄が縦に伸びる。
    const input=host.querySelector<HTMLTextAreaElement>('.ai-composer-input')
    if(input){input.rows=1;const fit=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px'};input.addEventListener('input',fit);fit()}
