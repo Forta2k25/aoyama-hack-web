@@ -334,3 +334,9 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-attachment-icon--image { --ai-attachment-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='16' rx='3'/%3E%3Ccircle cx='9' cy='10' r='1.6'/%3E%3Cpath d='M21 16l-5-5-8 8'/%3E%3C/svg%3E") }
 .ai-attachment-icon--audio { --ai-attachment-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='3' width='6' height='11' rx='3'/%3E%3Cpath d='M5 11a7 7 0 0 0 14 0M12 18v3'/%3E%3C/svg%3E") }
 .ai-attachment-icon--pdf,.ai-attachment-icon--note { --ai-attachment-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l5 5v13H6z'/%3E%3Cpath d='M14 3v5h5M9 13h6M9 17h6'/%3E%3C/svg%3E") }
+
+.ai-add-menu[open] .ai-menu-items { animation:ai-menu-in .16s cubic-bezier(.2,.8,.2,1);transform-origin:bottom left }
+.ai-add-menu--closing .ai-menu-items { animation:ai-menu-out .14s ease-in forwards }
+@keyframes ai-menu-in { from { opacity:0;transform:translateY(8px) scale(.96) } to { opacity:1;transform:none } }
+@keyframes ai-menu-out { from { opacity:1;transform:none } to { opacity:0;transform:translateY(8px) scale(.96) } }
+@media (prefers-reduced-motion:reduce) { .ai-add-menu[open] .ai-menu-items,.ai-add-menu--closing .ai-menu-items { animation:none } }

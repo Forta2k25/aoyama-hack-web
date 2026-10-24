@@ -1,3 +1,4 @@
+import {chunkText,docxMime,docxText,isDocx} from '../ai/docx'
 import type {ChatSyllabus} from '../ai/syllabus'
 import type {LectureMeeting} from '../ai/calendar'
 import type { Course } from '../timetable'
@@ -56,8 +57,12 @@ export class CourseChat {
     this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=2;this.textarea.setAttribute('aria-label','AIへのメッセージ')
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
     const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
-    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept=`${imageFileAccept},application/pdf,audio/mp4,.m4a`;fileInput.hidden=true
-    menuBody.append(button('写真・PDF・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
+    menuTitle.addEventListener('click',e=>{e.preventDefault();if(menu.open)this.closeMenu(menu);else{menu.classList.remove('ai-add-menu--closing');menu.open=true}})
+    menuBody.addEventListener('click',()=>this.closeMenu(menu))
+    const outside=(e:Event)=>{if(menu.open&&!menu.contains(e.target as Node))this.closeMenu(menu)};document.addEventListener('pointerdown',outside);this.offOutside=()=>document.removeEventListener('pointerdown',outside)
+    menu.addEventListener('keydown',e=>{if((e as KeyboardEvent).key==='Escape'&&menu.open){e.stopPropagation();this.closeMenu(menu);menuTitle.focus()}})
+    const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept=`${imageFileAccept},application/pdf,audio/mp4,.m4a,.docx,${docxMime}`;fileInput.hidden=true
+    menuBody.append(button('写真・PDF・Word・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
     this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
     this.attachments.setAttribute('role','list');this.attachments.setAttribute('aria-label','追加した資料とアップロード状況');this.attachments.hidden=true
@@ -66,7 +71,7 @@ export class CourseChat {
     const composerHeader=el('div','ai-composer-header');composerHeader.append(this.composerToggle,this.stop)
     tools.append(menu,this.send);this.composerBody.append(this.attachments,this.textarea,tools,fileInput);this.composer.append(composerHeader,this.sendWait,this.composerBody)
     this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled||this.composerCollapsed)return;const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
-    fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);menu.open=false})
+    fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);this.closeMenu(menu)})
     this.root.addEventListener('dragover',e=>{e.preventDefault();this.root.classList.add('ai-dragging')})
     this.root.addEventListener('dragleave',()=>this.root.classList.remove('ai-dragging'))
     this.root.addEventListener('drop',e=>{e.preventDefault();this.root.classList.remove('ai-dragging');void this.addFiles([...e.dataTransfer?.files??[]])})
@@ -118,13 +123,33 @@ export class CourseChat {
     for(const file of files.slice(0,8)){
       if(this.disposed)break
       if(isHEIC(file,file.name))this.status.textContent='HEIC/HEIFをこの端末でJPEGに変換しています…'
+      if(isDocx(file)){await this.addWord(file);continue}
       await this.perform(async()=>{const row=await this.controller!.stageFile(file);this.recentAttachments.add(row.id);this.render()})
     }
     if(files.length>8)this.status.textContent='一度に追加できる資料は8件までです。'
   }
+  private async addWord(file:File){
+    this.status.textContent='Wordファイルの本文を読み取っています…'
+    await this.perform(async()=>{
+      if(file.size>20*1024*1024)throw Error('WEB_Wordファイルは20MB以下にしてください。')
+      const chunks=chunkText(await docxText(file))
+      if(!chunks.length)throw Error('WEB_Wordファイルに本文が見つかりませんでした。')
+      if(chunks.length>8)throw Error('WEB_Wordファイルが長すぎます。8万文字以内にするか、PDFにして追加してください。')
+      for(const text of chunks){const row=await this.controller!.stageNote(text);this.recentAttachments.add(row.id)}
+      this.render()
+      this.status.textContent=`Wordファイル「${file.name}」の本文を資料として追加しました。`
+    })
+  }
+  private offOutside?:()=>void
+  private closeMenu(menu:HTMLDetailsElement){
+    if(!menu.open||menu.classList.contains('ai-add-menu--closing'))return
+    if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches){menu.open=false;return}
+    menu.classList.add('ai-add-menu--closing')
+    window.setTimeout(()=>{menu.open=false;menu.classList.remove('ai-add-menu--closing')},140)
+  }
   private showNote(){
     if(!this.controller)return
-    const menu=this.root.querySelector<HTMLDetailsElement>('.ai-add-menu');if(menu)menu.open=false
+    const menu=this.root.querySelector<HTMLDetailsElement>('.ai-add-menu');if(menu)this.closeMenu(menu)
     const dialog=el('dialog','ai-note-dialog'),form=el('form'),label=el('label','','資料メモ'),input=el('textarea');input.rows=8;input.maxLength=10000;input.required=true;input.setAttribute('aria-label','資料メモの本文');label.append(input)
     const actions=el('div','ai-note-actions'),cancel=button('キャンセル',()=>dialog.close()),save=el('button','ai-send','資料として保存');save.type='submit';actions.append(cancel,save);form.append(label,actions)
     form.addEventListener('submit',e=>{e.preventDefault();save.disabled=true;void this.perform(async()=>{await this.controller!.stageNote(input.value);dialog.close()}).finally(()=>{save.disabled=false})})
@@ -315,5 +340,5 @@ export class CourseChat {
     if(value.latency){const labels:Record<string,string>={uploadMs:'送信',queueWaitMs:'待機',workerStartupMs:'起動',routerMs:'Router',nativeExtractionMs:'本文抽出',ocrProbeMs:'OCR probe',ocrMs:'OCR',aiMs:'AI',persistenceMs:'保存',evidenceMs:'本文取得',totalProcessingMs:'worker全体'};const lines=Object.entries(labels).map(([key,label])=>`${label}: ${typeof value.latency![key]==='number'?(Number(value.latency![key])/1000).toFixed(2)+'秒':'未計測'}`);body.append(el('pre','ai-metadata',lines.join('\n')))}
     this.evidenceBody.replaceChildren(body)
   }
-  dispose(){this.disposed=true;for(const entry of this.thumbnails.values())URL.revokeObjectURL(entry.url);this.thumbnails.clear();this.attachmentCards.clear();if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
+  dispose(){this.disposed=true;this.offOutside?.();for(const entry of this.thumbnails.values())URL.revokeObjectURL(entry.url);this.thumbnails.clear();this.attachmentCards.clear();if(this.materialsPanel.open)this.materialsPanel.close();this.materialsButton.remove();this.controller?.dispose();clearTimeout(this.recordTimer);if(this.record?.state==='recording')this.record.stop();this.audio?.getTracks().forEach(x=>x.stop());this.root.querySelectorAll('dialog').forEach(x=>x.remove())}
 }

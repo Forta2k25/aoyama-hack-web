@@ -43,7 +43,7 @@ export function fileKind(file: File): SourceKind {
   if (/^image\/(jpeg|png|webp|heic(?:-sequence)?|heif(?:-sequence)?)$/.test(file.type) || /\.(jpg|jpeg|png|webp|heic|heif)$/.test(name)) return 'image'
   if (/\.m4a$/.test(name) || /^audio\/(mp4|x-m4a)$/.test(file.type)) return 'audio'
   if (/^audio\//.test(file.type)||/\.(mp3|wav|webm|aiff|ogg)$/.test(name))throw Error('WEB_本番AIで受け付ける音声はm4aです。m4aへ変換してから追加してください。')
-  throw Error('写真（JPEG・PNG等）、PDF、m4aを選んでください。')
+  throw Error('写真（JPEG・PNG等）、PDF、Word(.docx)、m4aを選んでください。')
 }
 export function mimeFor(file: File, type: SourceKind): string {
   if (type === 'pdf') return 'application/pdf'
