@@ -6,7 +6,10 @@ import {courseKey,resolveContext,sessionKey,isCourseUUID,makeContext,dayIDFor} f
 import {lectureSchedule,validDate,calendarSource,japanDate,type LectureSettings,type LectureMeeting} from '../ai/calendar'
 import {safeError,evidenceText,metadataText} from '../ai/format'
 import {CourseChat} from './CourseChat'
+import {syncConversation} from '../ai/message-sync'
 const node=<K extends keyof HTMLElementTagNameMap>(tag:K,cls='',text?:string)=>{const n=document.createElement(tag);n.className=cls;if(text!==undefined)n.textContent=text;return n}
+const attachmentLabel={image:'画像を送りました',audio:'録音を送りました',pdf:'PDFを送りました',note:'資料メモを送りました'} as const
+const previewText=(message:Message)=>message.attachmentKind?attachmentLabel[message.attachmentKind]:message.text.slice(0,42)
 const dateLabel=(date:string)=>new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',month:'numeric',day:'numeric',weekday:'short'}).format(new Date(date+'T00:00:00+09:00'))
 export class CourseAI {
  private disposed=false;private viewTicket=0;private chat?:CourseChat;private context?:CourseContext;private settings:LectureSettings={};private legacy:Message[]=[];private legacyMaterials:LocalMaterial[]=[];private lifetime=new AbortController();private screen?:HTMLDialogElement;private returnFocusDay?:number
@@ -46,11 +49,12 @@ export class CourseAI {
    const item=node('button','ai-lecture-card'),badge=node('span','ai-lecture-number',String(meeting.number)),body=node('span','ai-lecture-body'),label=node('strong','',`第${meeting.number}回授業`)
    item.type='button';item.dataset.lectureDay=String(meeting.dayID);item.setAttribute('aria-label',`第${meeting.number}回授業 ${dateLabel(meeting.date)}`)
    if(meeting.thisWeek)item.classList.add('ai-lecture-card--current')
-   body.append(label,node('small','',history.length?history.at(-1)!.text.slice(0,42):sources.length?`資料 ${sources.length}件`:'まだ記録がありません'))
+   body.append(label,node('small','',history.length?previewText(history.at(-1)!):sources.length?`資料 ${sources.length}件`:'まだ記録がありません'))
    const date=node('span','ai-lecture-date',dateLabel(meeting.date));if(meeting.thisWeek)date.append(node('small','','今週'+(meeting.upcoming?'・予定':'')))
    item.append(badge,body,date);item.addEventListener('click',()=>void this.open(meeting,false,true));list.append(item)
   }
   this.root.replaceChildren(title,intro,notice,this.settingsForm(),list)
+  this.startListSync()
   if(this.legacy.length||this.legacyMaterials.length){const archive=node('details','ai-legacy-history'),summary=node('summary','','以前の履歴（授業回未確定）');archive.append(summary,node('p','','以前の識別方法で保存された履歴です。別授業が混在する可能性があるため、新しいチャットには参照・引継ぎしません。'))
    for(const row of this.legacyMaterials){const label=node('p','',row.title);archive.append(label);if(row.remote){const read=node('button','ai-small-button','旧資料の本文を見る'),body=node('pre','ai-legacy-text');read.type='button';read.addEventListener('click',()=>{read.disabled=true;body.textContent='本文を確認しています…';void this.backend.evidence(row.remote!.sourceId,false,this.lifetime.signal).then(value=>{if(!this.disposed)body.textContent=evidenceText(value.items)+'\n'+metadataText(value.recognition)}).catch(error=>{if(!this.disposed)body.textContent=safeError(error)}).finally(()=>{read.disabled=false})});archive.append(read,body)}}
    for(const message of this.legacy){archive.append(node('p','ai-legacy-role',message.role==='user'?'あなた':'AI'),node('p','ai-legacy-text',message.text))}this.root.append(archive)}
@@ -62,7 +66,7 @@ export class CourseAI {
  }
  private async open(meeting:LectureMeeting,ask=false,fromList=false){
   if(this.disposed)return
-  this.viewTicket++;this.chat?.dispose();this.closeScreen();this.returnFocusDay=meeting.dayID
+  this.viewTicket++;this.stopListSync();this.chat?.dispose();this.closeScreen();this.returnFocusDay=meeting.dayID
   const styled=ask||fromList,screen=node('dialog',styled?'ai-chat-screen ai-chat-screen--ask':'ai-chat-screen'),header=node('header','ai-chat-screen-header'),titles=node('div','ai-chat-screen-titles'),actions=node('div','ai-chat-screen-actions')
   const back=node('button','ai-small-button',styled?'×':'← 授業回一覧'),heading=node('h3','ai-session-course',this.course.title),date=node('p','ai-session-title',`第${meeting.number}回授業 · ${dateLabel(meeting.date)}`),host=node('div','ai-session-chat')
   heading.id=`ai-chat-title-${crypto.randomUUID()}`;screen.setAttribute('aria-labelledby',heading.id);screen.setAttribute('aria-modal','true')
@@ -86,5 +90,29 @@ export class CourseAI {
   form.addEventListener('submit',e=>{e.preventDefault();void(async()=>{const skipped=skip.value.split(/\s+/).filter(Boolean);if((first.value&&!validDate(first.value))||skipped.some(x=>!validDate(x))){status.textContent='有効な日付を入力してください。';return}save.disabled=true;try{this.settings={firstDate:first.value||undefined,campus:campus.value as LectureSettings['campus']||undefined,skippedDates:skipped};await this.store.putSettings(this.uid,courseKey(this.context!),this.settings);await this.showList()}catch(e){status.textContent=safeError(e)}finally{save.disabled=false}})()})
   details.append(summary,node('p','','変更しても保存済みチャットの日付は変わりません。日程設定と会話は、このブラウザに保存されます。'),form);return details
  }
- dispose(){this.disposed=true;this.lifetime.abort();this.chat?.dispose();this.closeScreen()}
+ /** 授業回の一覧が出ている間、アプリなど別の端末の会話を取り込み、一覧の「最後の発言」を、すぐ更新する(チャットを開かなくても、反映される)。 */
+ private listUnsubscribe?:()=>void;private listPoll?:ReturnType<typeof setInterval>;private listSyncing=false
+ private startListSync(){
+  if(this.disposed||this.backend.demo||!this.backend.saveMessages||!this.context)return
+  void this.syncList()
+  if(!this.listPoll)this.listPoll=setInterval(()=>{if(typeof document!=='undefined'&&document.visibilityState==='hidden')return;void this.syncList()},30000)
+ }
+ private stopListSync(){clearInterval(this.listPoll);this.listPoll=undefined;this.listUnsubscribe?.();this.listUnsubscribe=undefined}
+ private async syncList(){
+  if(this.disposed||this.listSyncing||!this.context)return
+  this.listSyncing=true
+  const ticket=this.viewTicket
+  try{
+   const added=await syncConversation(this.backend,this.store,this.uid,this.context,this.lifetime.signal)
+   const offering=this.backend.messagesOfferingId
+   if(offering&&!this.listUnsubscribe&&!this.disposed){
+    try{const {subscribeConversation}=await import('../ai/message-subscription');if(!this.disposed&&!this.listUnsubscribe&&ticket===this.viewTicket)this.listUnsubscribe=subscribeConversation(this.uid,offering,()=>{void this.syncList()})}catch{/* 購読できなくても、30秒ごとの確認が働く */}
+   }
+   // 一覧がそのまま出ているときだけ、描き直す。「授業日程を調整」を開いて、入力している間は、触らない。
+   const editing=this.root.querySelector<HTMLDetailsElement>('details.ai-schedule-settings')?.open
+   if(added.length&&ticket===this.viewTicket&&!this.disposed&&!editing){this.listSyncing=false;await this.showList()}
+  }catch{/* 通信に失敗しても、一覧はそのまま */}
+  finally{this.listSyncing=false}
+ }
+ dispose(){this.disposed=true;this.stopListSync();this.lifetime.abort();this.chat?.dispose();this.closeScreen()}
 }
