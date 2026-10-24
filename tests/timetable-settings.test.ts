@@ -47,3 +47,18 @@ test('課題: アプリの形を読み、今後は日付ごと・期限切れは
   assert.equal(g.upcoming[0].items.length, 2)
   assert.deepEqual(g.past.map((i) => i.uid), ['d', 'c'])
 })
+
+import { categoryOf, academicMonths } from '../src/academicCalendar'
+test('学事暦: アプリと同じ判定(授業日・休講・補講・試験・長期休業)', () => {
+  assert.equal(categoryOf(new Date(2026, 9, 24), 'aoyama'), 'class')
+  assert.equal(categoryOf(new Date(2026, 9, 25), 'aoyama'), 'sunday')
+  assert.equal(categoryOf(new Date(2026, 9, 30), 'aoyama'), 'kyuko')
+  assert.equal(categoryOf(new Date(2026, 9, 10), 'aoyama'), 'class')
+  assert.equal(categoryOf(new Date(2026, 9, 10), 'sagamihara'), 'kyuko')
+  assert.equal(categoryOf(new Date(2026, 6, 23), 'aoyama'), 'makeup')
+  assert.equal(categoryOf(new Date(2026, 6, 28), 'aoyama'), 'exam')
+  assert.equal(categoryOf(new Date(2026, 7, 20), 'aoyama'), 'break')
+  assert.equal(categoryOf(new Date(2026, 3, 29), 'aoyama'), 'class', '祝日でも授業実施日')
+  assert.equal(categoryOf(new Date(2027, 0, 22), 'sagamihara'), 'makeup')
+  assert.equal(academicMonths().length, 12)
+})

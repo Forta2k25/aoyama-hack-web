@@ -1613,3 +1613,25 @@ body.modal-open { overflow: hidden; }
 .as-course { font-size:.78rem; color:#8e8e93; }
 .as-time { font-size:.85rem; color:#5b6b7a; flex:none; }
 .as-past-toggle { align-self:flex-start; border:0; background:transparent; color:#5b6b7a; font-size:.88rem; cursor:pointer; padding:4px 2px; }
+.tts-panel:has(.cal-scroll) .tts-body { overflow:hidden; flex:1; min-height:0; }
+.cal-campus { display:flex; } .cal-campus .tts-seg-btn { flex:1; padding:8px 0; }
+.cal-weekdays { display:grid; grid-template-columns:repeat(7,1fr); text-align:center; font-size:.8rem; color:#8e8e93; border-bottom:1px solid #e5e5ea; padding-bottom:6px; }
+.cal-weekdays .cal-sun { color:#c7c7cc; }
+.cal-scroll { overflow-y:auto; flex:1; min-height:0; background:#fff; border-radius:12px; padding:0 4px 8px; }
+.cal-month-title { margin:18px 6px 6px; font-size:1.15rem; color:#1c1c1e; }
+.cal-month-title--now { color:#ff3b30; }
+.cal-week { display:grid; grid-template-columns:repeat(7,1fr); }
+.cal-cell { display:flex; flex-direction:column; align-items:center; justify-content:flex-start; height:46px; gap:2px; }
+.cal-num { font-style:normal; width:30px; height:30px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:1rem; color:#1c1c1e; }
+.cal-num.cal-sunday { color:#c7c7cc; }
+.cal-num.cal-kyuko { background:#fbe7a1; }
+.cal-num.cal-makeup { box-shadow:inset 0 0 0 2.5px #34c759; }
+.cal-num.cal-exam { background:#e6b8f0; }
+.cal-num.cal-break { background:#b3e5e8; }
+.cal-num.cal-today { background:#ff3b30; color:#fff; font-weight:700; }
+.cal-dot { width:6px; height:6px; border-radius:50%; background:#0a84ff; display:inline-block; }
+.cal-legend { display:flex; flex-wrap:wrap; gap:8px 14px; justify-content:center; font-size:.82rem; color:#3a3a3c; }
+.cal-legend span { display:inline-flex; align-items:center; gap:6px; }
+.cal-key { width:16px; height:16px; border-radius:50%; display:inline-block; }
+.cal-key.cal-kyuko { background:#fbe7a1; } .cal-key.cal-makeup { box-shadow:inset 0 0 0 2.5px #34c759; } .cal-key.cal-exam { background:#e6b8f0; } .cal-key.cal-break { background:#b3e5e8; } .cal-key.cal-today { background:#ff3b30; }
+.tts-panel--shown { transition:none; transform:none; }
