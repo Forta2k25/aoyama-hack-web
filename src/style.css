@@ -1635,3 +1635,6 @@ body.modal-open { overflow: hidden; }
 .cal-key { width:16px; height:16px; border-radius:50%; display:inline-block; }
 .cal-key.cal-kyuko { background:#fbe7a1; } .cal-key.cal-makeup { box-shadow:inset 0 0 0 2.5px #34c759; } .cal-key.cal-exam { background:#e6b8f0; } .cal-key.cal-break { background:#b3e5e8; } .cal-key.cal-today { background:#ff3b30; }
 .tts-panel--shown { transition:none; transform:none; }
+
+.ai-session-pick{font:inherit;color:inherit;background:transparent;border:0;border-radius:8px;padding:2px 6px;cursor:pointer;text-align:center;max-width:100%}
+.ai-session-pick:hover,.ai-session-pick:focus-visible{background:rgba(127,127,127,.15)}
