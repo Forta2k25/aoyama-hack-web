@@ -10,6 +10,7 @@ import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 import { loadGuestSlots, setGuestCourse, removeGuestCourse } from '../guestTimetable'
 import { openGuestSlotPicker } from './GuestSlotPicker'
 import { fetchProfile, profileCardMarkup, bindProfileCard } from './ProfileCard'
+import { assignmentsPanelMarkup, mountAssignments } from './AssignmentsTab'
 import { mountAskBar, setAskBarVisible } from './AskBar'
 import { visibleGrid, loadTimetableSettings } from '../timetableSettings'
 import { openTimetableSettings } from './TimetableSettingsDrawer'
@@ -643,7 +644,8 @@ export async function renderMyPage(user: AuthUser) {
         <span class="eyebrow mypage-guest-term">${termLabel()}</span>
         <div class="mypage-tabs-bar">
           <button class="mypage-tab mypage-tab--active" id="tab-timetable" type="button">時間割</button>
-          <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
+          <button class="mypage-tab" id="tab-assignments" type="button">課題</button>
+        <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
         </div>
         <button class="btn btn-primary mypage-signin-compact" id="mypage-signin-btn" type="button">${googleMark()}ログインして時間割を同期</button>
       </div>
@@ -735,6 +737,7 @@ export async function renderMyPage(user: AuthUser) {
       container.innerHTML = `
         ${toolbar}
         <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday, false, true, true)}</div>
+        ${assignmentsPanelMarkup}
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
         ${friendsPanel}
       `
@@ -787,15 +790,21 @@ export async function renderMyPage(user: AuthUser) {
 
     // タブ切り替え
     let _friendsLoaded = false
-    type Tab = 'timetable' | 'syllabus' | 'friends'
+    let _assignmentsLoaded = false
+    type Tab = 'timetable' | 'assignments' | 'syllabus' | 'friends'
     const showTab = (tab: Tab, pushHistory = true) => {
-      (['timetable', 'syllabus', 'friends'] as Tab[]).forEach(t => {
+      (['timetable', 'assignments', 'syllabus', 'friends'] as Tab[]).forEach(t => {
         document.getElementById(`tab-panel-${t}`)?.toggleAttribute('hidden', t !== tab)
         document.getElementById(`tab-${t}`)?.classList.toggle('mypage-tab--active', t === tab)
       })
       if (tab !== 'timetable') closeCourseModal()
       setAskBarVisible(tab === 'timetable')
       if (pushHistory) history.pushState(null, '', location.search + `#${tab}`)
+      // 課題タブも、初回表示時に購読する
+      if (tab === 'assignments' && !_assignmentsLoaded) {
+        _assignmentsLoaded = true
+        mountAssignments(user.uid)
+      }
       // 友だちタブは初回表示時にロード
       if (tab === 'friends' && !_friendsLoaded) {
         _friendsLoaded = true
@@ -803,16 +812,18 @@ export async function renderMyPage(user: AuthUser) {
       }
     }
     document.getElementById('tab-timetable')?.addEventListener('click', () => showTab('timetable'))
+    document.getElementById('tab-assignments')?.addEventListener('click', () => showTab('assignments'))
     document.getElementById('tab-syllabus')?.addEventListener('click',   () => showTab('syllabus'))
     document.getElementById('tab-friends')?.addEventListener('click',    () => showTab('friends'))
     window.addEventListener('popstate', () => {
       const h = location.hash
-      showTab(h === '#syllabus' ? 'syllabus' : h === '#friends' ? 'friends' : 'timetable', false)
+      showTab(h === '#syllabus' ? 'syllabus' : h === '#friends' ? 'friends' : h === '#assignments' ? 'assignments' : 'timetable', false)
     })
     // 初期ロード: URL の hash でタブを決定
     const initHash = location.hash
     if (initHash === '#syllabus') showTab('syllabus', false)
     else if (initHash === '#friends') showTab('friends', false)
+    else if (initHash === '#assignments') showTab('assignments', false)
 
     initSyllabusSearch(openCourseModal)
   } catch {

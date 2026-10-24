@@ -25,3 +25,25 @@ test('単位は、同じ授業を二重に数えず、アプリと同じ分類�
   ])
   assert.deepEqual(sums, { aoyama: 2, department: 4, free: 0 })
 })
+
+import { parseAssignments, groupAssignments } from '../src/assignments'
+test('課題: アプリの形を読み、今後は日付ごと・期限切れは新しい順に分ける', () => {
+  const t = (d: number) => new Date(2026, 9, d, 12, 0).getTime()
+  const state = parseAssignments({
+    events: [
+      { uid: 'a', title: 'レポート', course: '英語', type: 'deadline', custom: false, due: t(30), url: 'https://moodle.example/x' },
+      { uid: 'b', title: '小テスト', course: '', type: 'deadline', custom: true, due: t(30) },
+      { uid: 'c', title: '終わった', course: '', type: 'deadline', custom: false, due: t(1) },
+      { uid: 'd', title: '昔', course: '', type: 'deadline', custom: false, due: t(2), url: 'javascript:alert(1)' },
+      { title: '壊れた' },
+    ],
+    submitted: ['a', 5],
+  })
+  assert.equal(state.items.length, 4)
+  assert.deepEqual([...state.submitted], ['a'])
+  assert.equal(state.items.find((i) => i.uid === 'd')?.url, undefined, 'http以外のリンクは捨てる')
+  const g = groupAssignments(state.items, t(15))
+  assert.equal(g.upcoming.length, 1)
+  assert.equal(g.upcoming[0].items.length, 2)
+  assert.deepEqual(g.past.map((i) => i.uid), ['d', 'c'])
+})

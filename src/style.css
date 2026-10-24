@@ -1601,3 +1601,15 @@ body.modal-open { overflow: hidden; }
 .profile-menu a, .profile-menu button { text-align:left; border:0; background:transparent; padding:11px 12px; border-radius:8px; color:#1c1c1e; font-size:.92rem; cursor:pointer; text-decoration:none; }
 .profile-menu a:hover, .profile-menu button:hover { background:#f2f2f7; }
 .profile-menu .profile-menu-danger { color:#d70015; }
+.assignments { display:flex; flex-direction:column; gap:14px; }
+.as-group { display:flex; flex-direction:column; gap:6px; }
+.as-date { margin:6px 2px 0; font-size:.82rem; color:#8e8e93; font-weight:600; }
+.as-row { display:flex; align-items:center; gap:12px; background:#fff; border-radius:12px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.as-row--done .as-title, .as-row--done .as-title a { color:#8e8e93; text-decoration:line-through; }
+.as-check { width:26px; height:26px; flex:none; border-radius:50%; border:2px solid #c7c7cc; background:#fff; color:#fff; font-size:.85rem; line-height:1; cursor:pointer; }
+.as-row--done .as-check { background:#0a6b48; border-color:#0a6b48; }
+.as-main { display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.as-title, .as-title a { font-weight:600; color:#1c1c1e; text-decoration:none; overflow-wrap:anywhere; }
+.as-course { font-size:.78rem; color:#8e8e93; }
+.as-time { font-size:.85rem; color:#5b6b7a; flex:none; }
+.as-past-toggle { align-self:flex-start; border:0; background:transparent; color:#5b6b7a; font-size:.88rem; cursor:pointer; padding:4px 2px; }
