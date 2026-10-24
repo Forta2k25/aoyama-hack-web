@@ -292,3 +292,23 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 /* 自分の発言: 薄い緑の背景に、濃い緑の文字 */
 .ai-chat-screen--ask .ai-message--user { background:#e3f3ea }
 .ai-chat-screen--ask .ai-message--user .ai-message-text { color:#0f5a3c }
+
+/* 返信の下の、アイコンだけのボタン(コピー・もう一度試す) */
+.ai-chat-screen--ask .ai-message-actions .ai-icon-btn { width:32px;height:32px;min-height:32px;padding:0;border-radius:8px;background-color:transparent;background-repeat:no-repeat;background-position:center;background-size:18px 18px;color:transparent;font-size:0 }
+.ai-chat-screen--ask .ai-message-actions .ai-icon-btn:hover { background-color:#f1f3f2 }
+.ai-chat-screen--ask .ai-message-actions .ai-icon-copy { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7570' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='11' height='11' rx='3'/%3E%3Cpath d='M15 9V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v5a3 3 0 0 0 3 3h2'/%3E%3C/svg%3E") }
+.ai-chat-screen--ask .ai-message-actions .ai-icon-retry { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7570' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 11a8 8 0 0 0-14.5-4.5M4 4v4h4M4 13a8 8 0 0 0 14.5 4.5M20 20v-4h-4'/%3E%3C/svg%3E") }
+.ai-chat-screen--ask .ai-icon-btn:disabled { opacity:.4 }
+
+.ai-chat-screen--ask .ai-message-actions .ai-icon-edit { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7570' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z'/%3E%3Cpath d='M14.5 6.5l3 3'/%3E%3C/svg%3E") }
+/* 自分の発言の下のボタンは、カーソルを合わせたときだけ出す(スマホなど、合わせられない端末では、いつも出す) */
+.ai-chat-screen--ask .ai-message--user { position:relative }
+.ai-chat-screen--ask .ai-message-actions--user { position:absolute;top:calc(100% + 2px);right:2px;margin:0;opacity:0;transition:opacity .15s }
+.ai-chat-screen--ask .ai-message--user:hover .ai-message-actions--user,.ai-chat-screen--ask .ai-message--user:focus-within .ai-message-actions--user { opacity:1 }
+@media (hover:none) { .ai-chat-screen--ask .ai-message-actions--user { opacity:1 } }
+.ai-chat-screen--ask .ai-message--editing { width:min(100%,560px);max-width:100%;padding:12px 14px;border-radius:20px }
+.ai-chat-screen--ask .ai-message--editing .ai-message-actions--user { display:none }
+.ai-chat-screen--ask .ai-message-editor-input { display:block;width:100%;box-sizing:border-box;border:0;background:transparent;resize:none;font-size:15px;line-height:1.6;color:#0f5a3c;outline:none;padding:0 }
+.ai-chat-screen--ask .ai-message-editor-buttons { display:flex;justify-content:flex-end;gap:8px;margin-top:10px }
+.ai-chat-screen--ask .ai-message-editor-buttons .ai-small-button { border-radius:999px;padding:6px 16px;font-size:13px;min-height:32px }
+.ai-chat-screen--ask .ai-message-editor-send { background:#0a6b48;color:#fff;border:0 }

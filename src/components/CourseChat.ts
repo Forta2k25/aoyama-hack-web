@@ -228,6 +228,13 @@ export class CourseChat {
     if(message.role==='assistant')renderAnswer(body,text)
     else body.textContent=text
     bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?(message.progress?.status==='continuing'?'回答が長いため続きを生成しています…':message.progress?.status==='retrying'?'接続が一時的に切れました。続きを再取得しています…':'返信中…'):message.state==='failed'?'回答を生成できませんでした。'+(message.error||''):message.state==='interrupted'?'回答が途中で中断されました。表示済みの内容は保持しています。'+(message.error?' '+message.error:''):message.recognition?(this.root.closest('.ai-chat-screen--ask')?compactMetadataText(message.recognition):metadataText(message.recognition)):''
+    if(message.role==='user'&&this.root.closest('.ai-chat-screen--ask')&&!bubble.querySelector('.ai-message-actions')){
+      // 自分の発言: カーソルを合わせると、コピーと編集(編集したら、もう一度送る)が出る
+      const actions=el('div','ai-message-actions ai-message-actions--user'),current=()=>this.controller?.messages.find(row=>row.id===message.id)?.text??message.text
+      const copy=button('',()=>void copyAnswer(current()).then(()=>{copy.title='コピーしました'}).catch(()=>{copy.title='コピーできませんでした'}),'ai-small-button ai-icon-btn ai-icon-copy'),edit=button('',()=>this.editUserMessage(bubble!,current()),'ai-small-button ai-icon-btn ai-icon-edit')
+      copy.title='コピー';copy.setAttribute('aria-label','自分の発言をコピー');edit.title='編集して再送信';edit.setAttribute('aria-label','編集して再送信')
+      actions.append(copy,edit);bubble.append(actions)
+    }
     let resume=bubble.querySelector<HTMLButtonElement>('.ai-answer-resume')
     if(!resume&&message.role==='assistant'){resume=button('続きから再開',()=>void this.perform(()=>this.controller!.resume(message.id)),'ai-small-button ai-answer-resume');bubble.append(resume)}
     if(resume){resume.hidden=!message.canResume||message.state==='sending';resume.disabled=!!this.controller?.sending}
@@ -237,11 +244,39 @@ export class CourseChat {
       let actions=bubble.querySelector<HTMLElement>('.ai-message-actions')
       if(!actions){
         actions=el('div','ai-message-actions');const feedback=el('span','ai-message-action-status');feedback.setAttribute('role','status')
-        const copy=button('コピー',()=>void this.exportAnswer(message.id,false),'ai-small-button ai-answer-copy'),share=button('共有',()=>void this.exportAnswer(message.id,true),'ai-small-button ai-answer-share')
-        copy.setAttribute('aria-label','このAI回答をコピー');share.setAttribute('aria-label','このAI回答を共有');actions.append(copy,share,feedback);bubble.append(actions)
+        const ask=!!this.root.closest('.ai-chat-screen--ask')
+        const copy=button(ask?'':'コピー',()=>void this.exportAnswer(message.id,false),`ai-small-button ai-answer-copy${ask?' ai-icon-btn ai-icon-copy':''}`),share=button('共有',()=>void this.exportAnswer(message.id,true),'ai-small-button ai-answer-share')
+        copy.setAttribute('aria-label','このAI回答をコピー');share.setAttribute('aria-label','このAI回答を共有')
+        if(ask){
+          // ChatGPTのように、アイコンだけ。コピーと、もう一度試す。
+          copy.title='コピー'
+          const retry=button('',()=>void this.perform(()=>this.regenerate(message.id)),'ai-small-button ai-icon-btn ai-icon-retry');retry.title='もう一度試す';retry.setAttribute('aria-label','もう一度試す')
+          actions.append(copy,retry,feedback)
+        }else actions.append(copy,share,feedback)
+        bubble.append(actions)
       }
       actions.hidden=message.state!=='done'||!message.text.trim()
     }
+  }
+  /** 自分の発言を、その場で編集して、もう一度送る。 */
+  private editUserMessage(bubble:HTMLElement,text:string){
+    if(bubble.classList.contains('ai-message--editing')||this.controller?.sending)return
+    const body=bubble.querySelector<HTMLElement>('.ai-message-text')!,editor=el('div','ai-message-editor'),input=el('textarea','ai-message-editor-input'),cancel=button('キャンセル',()=>done(),'ai-small-button'),send=button('送信',()=>{const value=input.value.trim();if(!value)return;done();void this.perform(()=>this.controller!.send(value))},'ai-small-button ai-message-editor-send')
+    input.value=text;input.rows=1;input.maxLength=2000;input.setAttribute('aria-label','発言を編集')
+    const fit=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,200)+'px'}
+    input.addEventListener('input',fit)
+    input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();send.click()}else if(e.key==='Escape')done()})
+    editor.append(input,el('div','ai-message-editor-buttons'))
+    editor.lastElementChild!.append(cancel,send)
+    const done=()=>{editor.remove();body.hidden=false;bubble.classList.remove('ai-message--editing')}
+    bubble.classList.add('ai-message--editing');body.hidden=true;body.after(editor);fit();input.focus();input.setSelectionRange(input.value.length,input.value.length)
+  }
+  /** 直前の自分の発言を、もう一度送って、答えを作り直す。 */
+  private async regenerate(id:string){
+    const rows=this.controller?.messages??[],index=rows.findIndex(row=>row.id===id)
+    const question=rows.slice(0,Math.max(index,0)).reverse().find(row=>row.role==='user')
+    if(!this.controller||this.controller.sending||!question?.text.trim())return
+    await this.controller.send(question.text)
   }
   private async exportAnswer(id:string,sharing:boolean){
     const message=this.controller?.messages.find(row=>row.id===id),actions=this.bubbles.get(id)?.querySelector<HTMLElement>('.ai-message-actions')
