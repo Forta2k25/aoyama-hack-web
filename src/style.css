@@ -1513,3 +1513,35 @@ body.modal-open { overflow: hidden; }
 .course-edit-swatch:focus-visible { outline: 2px solid #0a6b48; outline-offset: 2px; }
 .course-edit-remove { border: 1px solid #e0b4b0; background: #fff; color: #b3261e; border-radius: 999px; padding: 6px 14px; font-size: .82rem; cursor: pointer; }
 .course-edit-remove:hover { background: #fdf0ef; }
+
+/* 時間割の見た目を、アプリにそろえる: 枠線なし・角丸のコマ・コマの間にすきま・白い文字・半透明の白い番号のカプセル */
+.tt-scroll { box-shadow: none; border-radius: 0; background: transparent; overflow-x: auto; }
+.tt-table { border-collapse: separate; border-spacing: 6px; background: transparent; border-radius: 0; overflow: visible; margin: -6px; width: calc(100% + 12px); }
+.tt-corner, .tt-day-header, .tt-period-header { background: transparent; border: 0; }
+.tt-day-header { color: #1c1c1e; font-size: 1rem; font-weight: 700; padding: 8px 0 6px; border-left: 0; letter-spacing: 0; }
+.tt-day-header--today { background: rgba(10, 107, 72, .12); color: #0a6b48; border-radius: 12px; }
+.tt-period-header { padding: 4px 0; border-top: 0; }
+.tt-period-num { color: #1c1c1e; font-size: 1.2rem; font-weight: 700; }
+.tt-period-time { color: #8e8e93; font-size: .72rem; }
+.tt-cell { border: 0; border-radius: 14px; overflow: hidden; background: #fff; }
+.tt-cell-empty { background: #fff; }
+.tt-cell-filled { color: #fff; }
+.tt-cell-filled .tt-cell-inner { justify-content: space-between; padding: 12px 6px 8px; gap: 6px; }
+.tt-cell-filled .tt-title { color: #fff; font-weight: 700; margin: auto 0; word-break: normal; overflow-wrap: anywhere; }
+.tt-cell-filled .tt-room { color: #fff; background: rgba(255, 255, 255, .28); border-radius: 9px; padding: 3px 10px; font-size: .74rem; font-weight: 600; }
+.tt-add { color: #c7c7cc; font-size: 1.5rem; }
+.tt-add:hover, .tt-add:focus-visible { background: #f2f9f5; color: #2d8067; }
+.tt-remove { background: rgba(0, 0, 0, .22); }
+.tt-table { min-width: 0; }
+.tt-cell { min-width: 0; }
+@media (max-width: 640px) {
+  .tt-day-header { font-size: .92rem; }
+  .tt-cell-filled .tt-title { font-size: .76rem; }
+  .tt-cell-filled .tt-room { font-size: .68rem; padding: 2px 7px; }
+  .tt-corner { width: 40px; }
+}
+.tt-table { margin: 0; width: 100%; }
+.tt-cell-empty { background: #f1f4f3; }
+.tt-cell-filled .tt-cell-inner { padding: 10px 3px 6px; }
+.tt-remove { top: 4px; right: 4px; width: 18px; height: 18px; font-size: .7rem; }
+@media (max-width: 640px) { .tt-cell-filled .tt-title { font-size: .72rem; } }
