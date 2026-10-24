@@ -21,7 +21,11 @@ function loginDialog(): void {
       <button class="btn btn-primary" type="button">Googleでログイン</button>
     </div>`
   document.body.append(dialog)
-  const close = () => { dialog.classList.add('ai-chat-screen--closing'); window.setTimeout(() => { dialog.close(); dialog.remove() }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 180) }
+  const close = () => {
+    const finish = () => { dialog.close(); dialog.remove() }
+    if (typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches) finish()
+    else { dialog.classList.add('ai-chat-screen--closing'); window.setTimeout(finish, 180) }
+  }
   dialog.querySelector('header button')!.addEventListener('click', close)
   dialog.querySelector('.ask-chat-login-body button')!.addEventListener('click', () => {
     void import('../auth').then(({ signInWithGoogle }) => signInWithGoogle()).then(() => location.reload())

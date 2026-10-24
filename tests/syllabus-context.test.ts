@@ -59,7 +59,7 @@ test('an early chat waits for its syllabus, reuses it across lectures and sends 
  resolve(new Response(html('A')));await until(()=>!!document.querySelector('.ai-send:not([disabled])'))
  const ask=async()=>{document.querySelector<HTMLTextAreaElement>('.ai-composer-input')!.value='この回の予定は？';document.querySelector('dialog form')!.dispatchEvent(new dom.window.Event('submit',{cancelable:true}));await until(()=>backend.calls.length>0&&!document.querySelector('.ai-send[disabled]'))}
  await ask();assert.match(backend.calls[0].syllabus!,/この回の予定: 4\. Aの第4回予定/)
- ;[...document.querySelectorAll<HTMLButtonElement>('dialog button')].find(x=>x.textContent==='← 授業回一覧')!.click();await until(()=>!!root.querySelector('.ai-lecture-card'));root.querySelectorAll<HTMLButtonElement>('.ai-lecture-card')[1].click();await until(()=>!!document.querySelector('.ai-send:not([disabled])'))
+ ;[...document.querySelectorAll<HTMLButtonElement>('dialog button')].find(x=>x.closest('.ai-chat-screen-header'))!.click();await until(()=>!!root.querySelector('.ai-lecture-card'));root.querySelectorAll<HTMLButtonElement>('.ai-lecture-card')[1].click();await until(()=>!!document.querySelector('.ai-send:not([disabled])'))
  await ask();assert(!backend.calls[1].syllabus!.includes('この回の予定:'),'missing third lecture not guessed');assert(backend.calls[1].syllabus!.includes('選択した授業回: 第3回'));assert.notEqual(backend.calls[0].context.dayID,backend.calls[1].context.dayID);assert.equal(fetches,1);view.dispose()
 })
 test('late course A syllabus cannot overwrite course B or send A context from B',async t=>{
