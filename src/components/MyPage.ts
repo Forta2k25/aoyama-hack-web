@@ -517,7 +517,7 @@ const PERIOD_TIMES: Record<number, [string, string]> = {
   7: ['20:10', '21:40'],
 }
 
-function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false): string {
+function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false, hideLabel = false): string {
   const days = hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS
   const periods = Array.from({ length: MAX_PERIODS }, (_, i) => i + 1)
 
@@ -571,7 +571,7 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
       </aside>
       <div class="tt-main">
         <div class="tt-wrapper">
-          ${guest ? '' : `<div class="tt-label-row">
+          ${guest || hideLabel ? '' : `<div class="tt-label-row">
             <span class="eyebrow">${label}</span>
           </div>`}
           <div class="tt-scroll">
@@ -677,6 +677,14 @@ export async function renderMyPage(user: AuthUser) {
         <button class="mypage-tab" id="tab-friends" type="button">友だち</button>
       </div>
     `
+    // ログイン前と同じ1行: 左に学期、まんなかにタブ、右にログアウト
+    const toolbar = `
+      <div class="mypage-guest-toolbar">
+        <span class="eyebrow mypage-guest-term">${label}</span>
+        ${tabsBar}
+        <button class="btn btn-ghost mypage-signout" id="mypage-signout-btn" type="button">ログアウト</button>
+      </div>
+    `
     const friendsPanel = `
       <div id="tab-panel-friends" hidden>
         <div id="friends-panel-inner" class="friends-panel">
@@ -691,11 +699,7 @@ export async function renderMyPage(user: AuthUser) {
 
     if (slots.length === 0) {
       container.innerHTML = `
-        <div class="mypage-header">
-          <p class="eyebrow">マイページ</p>
-          <button class="btn btn-ghost mypage-signout" id="mypage-signout-btn" type="button">ログアウト</button>
-        </div>
-        ${tabsBar}
+        ${toolbar}
         <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
         ${friendsPanel}
@@ -703,12 +707,8 @@ export async function renderMyPage(user: AuthUser) {
     } else {
       const hasSaturday = slots.some((s) => s.day === 5)
       container.innerHTML = `
-        <div class="mypage-header">
-          <p class="eyebrow">マイページ</p>
-          <button class="btn btn-ghost mypage-signout" id="mypage-signout-btn" type="button">ログアウト</button>
-        </div>
-        ${tabsBar}
-        <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday)}</div>
+        ${toolbar}
+        <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday, false, true)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
         ${friendsPanel}
       `
@@ -732,7 +732,6 @@ export async function renderMyPage(user: AuthUser) {
       })
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape'&&!document.querySelector('dialog[open]')) closeCourseModal() })
     }
-    if(webAIEnabled())void import('../ai/connection').then(({mountConnectionCheck})=>{if(pageRequest===_pageRequest)void mountConnectionCheck(container,user.uid)})
     // 現在時刻ライン（時間割タブのみ）
     startNowLine()
     mountAskBar(() => { _askPicked = true })

@@ -1502,3 +1502,5 @@ body.modal-open { overflow: hidden; }
     padding-inline: 10px;
   }
 }
+
+.mypage-guest-toolbar .mypage-signout { justify-self: end; }
