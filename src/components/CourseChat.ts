@@ -31,7 +31,7 @@ export class CourseChat {
   private composerBody=el('div','ai-composer-body');private composerCollapsed=false
   private composerToggle=button('入力欄を下げる ↓',()=>this.setComposerCollapsed(!this.composerCollapsed),'ai-composer-toggle')
   private suggestions=el('div','ai-suggestions');private caption=el('small','ai-composer-caption','Enterで送信 · Shift＋Enterで改行 · AIの回答は原資料と照合してください。')
-  private thumbnails=new Map<string,{file:Blob;url:string}>();private covers=new Map<string,{url:string;label:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
+  private thumbnails=new Map<string,{file:Blob;url:string}>();private openedAt=Date.now();private covers=new Map<string,{url:string;label:string}>();private recentAttachments=new Set<string>();private dismissedAttachments=new Set<string>()
   private root:HTMLElement;private course:Course;private uid:string;private backend:AIBackend;private store:AIStore;private context?:CourseContext
   constructor(root:HTMLElement,course:Course,uid:string,backend:AIBackend,store=new AIStore(),context?:CourseContext,toolbar?:HTMLElement,syllabus?:Promise<ChatSyllabus>,meetings:LectureMeeting[]=[]){this.meetings=meetings;this.syllabus=syllabus;this.toolbar=toolbar;this.context=context;this.root=root;this.course=course;this.uid=uid;this.backend=backend;this.store=store}
   async mount(){
@@ -242,7 +242,7 @@ export class CourseChat {
   }
   private renderAttachments(){
     const c=this.controller;if(!c||this.disposed)return
-    const rows=c.materials.filter(row=>!row.wantsDeletion&&row.state!=='deleting'&&!this.dismissedAttachments.has(row.id)&&(this.recentAttachments.has(row.id)||c.selected.has(row.id)||row.state!=='ready'))
+    const rows=c.materials.filter(row=>!row.wantsDeletion&&row.state!=='deleting'&&!this.dismissedAttachments.has(row.id)&&(this.recentAttachments.has(row.id)||row.createdAt>=this.openedAt||row.state!=='ready'))
     const ids=new Set(rows.map(row=>row.id))
     for(const [id,entry]of this.thumbnails)if(!ids.has(id)){URL.revokeObjectURL(entry.url);this.thumbnails.delete(id)}
     for(const [id,card]of this.attachmentCards)if(!ids.has(id)){card.remove();this.attachmentCards.delete(id)}
