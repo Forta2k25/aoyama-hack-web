@@ -1545,3 +1545,6 @@ body.modal-open { overflow: hidden; }
 .tt-cell-filled .tt-cell-inner { padding: 10px 3px 6px; }
 .tt-remove { top: 4px; right: 4px; width: 18px; height: 18px; font-size: .7rem; }
 @media (max-width: 640px) { .tt-cell-filled .tt-title { font-size: .72rem; } }
+.tt-cell { border-radius: 8px; }
+.tt-day-header--today { border-radius: 8px; }
+.tt-cell-filled .tt-room { border-radius: 6px; }
