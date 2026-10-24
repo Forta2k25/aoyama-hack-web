@@ -351,7 +351,7 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-attachment-tools { position:absolute;top:6px;right:6px;margin:0;gap:4px }
 .ai-attachment-tools .ai-attachment-retry { background:#fff }
 .ai-attachment-tools .ai-attachment-dismiss { position:relative;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:#1f2321cc;font-size:0!important;color:transparent }
-.ai-attachment-tools .ai-attachment-dismiss::before { content:'×';position:absolute;inset:0;display:grid;place-items:center;font-size:15px;line-height:1;color:#fff }
+.ai-attachment-tools .ai-attachment-dismiss::before { content:'';position:absolute;inset:0;background:linear-gradient(45deg,transparent 45%,#fff 45% 55%,transparent 55%) center/10px 10px no-repeat,linear-gradient(-45deg,transparent 45%,#fff 45% 55%,transparent 55%) center/10px 10px no-repeat }
 
 /* ファイルをドラッグしている間、画面いっぱいに出す案内。 */
 .ai-drop-overlay { position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#ffffffe6;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none;text-align:center;padding:24px;animation:ai-drop-in .15s ease-out }
