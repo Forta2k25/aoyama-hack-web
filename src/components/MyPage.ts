@@ -2,6 +2,8 @@ import { type AuthUser } from '../auth'
 import { fetchTimetable, fetchCourseDetail, fetchFriends, termLabel, slotColor, dayName, type TimetableSlot, type Friend } from '../timetable'
 import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../syllabus'
 import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
+import { loadGuestSlots, setGuestCourse, removeGuestCourse } from '../guestTimetable'
+import { openGuestSlotPicker } from './GuestSlotPicker'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
@@ -506,7 +508,7 @@ const PERIOD_TIMES: Record<number, [string, string]> = {
   7: ['20:10', '21:40'],
 }
 
-function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean): string {
+function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false): string {
   const days = hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS
   const periods = Array.from({ length: MAX_PERIODS }, (_, i) => i + 1)
 
@@ -521,13 +523,16 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
     const cells = days.map((d) => {
       const slot = grid[`${d}-${p}`]
       if (!slot) {
-        return `<td class="tt-cell tt-cell-empty"><div class="tt-cell-inner"></div></td>`
+        return guest
+          ? `<td class="tt-cell tt-cell-empty tt-cell-add"><button class="tt-add" type="button" data-day="${d}" data-period="${p}" aria-label="${dayName(d)}曜${p}限に授業を追加">＋</button></td>`
+          : `<td class="tt-cell tt-cell-empty"><div class="tt-cell-inner"></div></td>`
       }
       const bg = slotColor(slot.course.colorKey)
       const roomText = slot.course.room ? `<small class="tt-room">${slot.course.room}</small>` : ''
       const courseJson = encodeURIComponent(JSON.stringify(slot.course))
       return `
         <td class="tt-cell tt-cell-filled" style="background:${bg}" data-course="${courseJson}" tabindex="0" role="button" aria-label="${slot.course.title}">
+          ${guest ? `<button class="tt-remove" type="button" data-day="${d}" data-period="${p}" aria-label="${slot.course.title}を外す">×</button>` : ''}
           <div class="tt-cell-inner">
             <span class="tt-title">${slot.course.title}</span>
             ${roomText}
@@ -593,6 +598,7 @@ export async function renderMyPage(user: AuthUser) {
     if (!document.getElementById('course-modal')) {
       document.body.insertAdjacentHTML('beforeend', courseDetailModalMarkup())
     }
+    const guestSlots = loadGuestSlots(termLabel())
     container.innerHTML = `
       <div class="mypage-header mypage-header--guest">
         <button class="btn btn-primary mypage-signin-compact" id="mypage-signin-btn" type="button">${googleMark()}ログインして同期</button>
@@ -602,7 +608,7 @@ export async function renderMyPage(user: AuthUser) {
         <button class="mypage-tab mypage-tab--active" id="tab-timetable" type="button">時間割</button>
         <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
       </div>
-      <div id="tab-panel-timetable">${timetableMarkup([], termLabel(), false)}</div>
+      <div id="tab-panel-timetable">${timetableMarkup(guestSlots, termLabel(), guestSlots.some((x) => x.day === 5), true)}</div>
       <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
     `
     const showGuestTab = (tab: 'timetable' | 'syllabus') => {
@@ -615,6 +621,32 @@ export async function renderMyPage(user: AuthUser) {
     document.getElementById('tab-syllabus')?.addEventListener('click', () => showGuestTab('syllabus'))
     if (location.hash === '#syllabus') showGuestTab('syllabus')
     initSyllabusSearch(openCourseModal)
+    // 空きコマの「＋」: 授業を選んで、この端末に保存する
+    container.querySelectorAll<HTMLButtonElement>('.tt-add').forEach((button) => {
+      button.addEventListener('click', () => {
+        const day = Number(button.dataset.day), period = Number(button.dataset.period)
+        openGuestSlotPicker(day, period, (course) => {
+          setGuestCourse(termLabel(), day, period, course)
+          void renderMyPage(null)
+        })
+      })
+    })
+    container.querySelectorAll<HTMLButtonElement>('.tt-remove').forEach((button) => {
+      button.addEventListener('click', (event) => {
+        event.stopPropagation()
+        removeGuestCourse(termLabel(), Number(button.dataset.day), Number(button.dataset.period))
+        void renderMyPage(null)
+      })
+    })
+    container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
+      const open = () => {
+        const raw = cell.getAttribute('data-course')
+        if (raw) { try { openCourseModal(JSON.parse(decodeURIComponent(raw))) } catch { /* ignore */ } }
+      }
+      cell.addEventListener('click', open)
+    })
+    document.getElementById('course-side-close')?.addEventListener('click', closeCourseModal)
+    document.getElementById('course-modal-close')?.addEventListener('click', closeCourseModal)
     return
   }
 

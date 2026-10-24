@@ -291,6 +291,21 @@ async function searchClasses(keyword: string, filters: FilterState): Promise<Sea
     .map(({ id, data: d }) => docToResult(id, d))
 }
 
+/** 空きコマに入れる授業の候補。今の学期で、その曜日・時限の授業を返す。 */
+export async function searchCoursesForSlot(day: number, period: number): Promise<Course[]> {
+  const month = new Date().getMonth() + 1
+  const results = await searchClasses('', { ...DEFAULT_FILTERS, term: month >= 4 && month <= 9 ? '前期' : '後期', days: [day], periods: [period] })
+  return results.map(r => ({
+    id: r.registrationNumber || r.firestoreId,
+    title: r.title,
+    room: r.room,
+    teacher: r.teacher,
+    credits: r.credit ? Number(r.credit) : undefined,
+    syllabusURL: r.syllabusURL,
+    firestoreDocID: r.firestoreId || undefined,
+  }))
+}
+
 // ─── Markup ──────────────────────────────────────────────────────────────────
 
 function filterPanelMarkup(initialTerm = ''): string {
