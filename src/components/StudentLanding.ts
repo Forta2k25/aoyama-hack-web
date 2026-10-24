@@ -1,3 +1,5 @@
+import { guestTimetableMarkup } from './GuestTimetable'
+
 const icons = {
   calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4m10-4v4M3 11h18M8 15h3m-3 3h6"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
@@ -11,36 +13,23 @@ export function studentLandingMarkup(): string {
   <div class="student-portal">
     <a class="student-skip" href="#student-main">本文へ移動</a>
     <header class="student-header">
-      <a class="student-brand" href="/student" aria-label="青山ハック 学生向けトップ">
-        <span class="student-brand-name">青山ハック</span><span class="student-brand-label">for students</span>
-      </a>
+      <div class="student-header-left">
+        <a class="student-brand" href="/student" aria-label="青山ハック 学生向けトップ">
+          <span class="student-brand-name">青山ハック</span><span class="student-brand-label">for students</span>
+        </a>
+        <a class="student-nav-login" href="/mypage#timetable">ログインして時間割を同期 ${icon('arrow')}</a>
+      </div>
       <nav class="student-nav" aria-label="学生向けメニュー">
         <a href="/mypage#timetable">${icon('calendar')}<span>時間割</span></a>
         <a href="/mypage#syllabus">${icon('search')}<span>授業検索</span></a>
-        <a class="student-nav-login" href="/mypage">ログイン ${icon('arrow')}</a>
       </nav>
     </header>
 
     <main id="student-main" class="student-main">
-      <div class="student-intro"><span class="student-intro-dot" aria-hidden="true"></span>青学生のための学習スペース</div>
-      <section class="student-hero" aria-labelledby="student-title">
-        <div class="student-hero-copy">
-          <p class="student-eyebrow">AOYAMA HACK / CAMPUS WEB</p>
-          <h1 id="student-title">今日の授業から、<br>学びをつなぐ。</h1>
-          <p class="student-hero-description">時間割も、授業の資料も、AIとの対話も。<br>いつもの学びを、ブラウザから。</p>
-          <div class="student-hero-caption"><span></span>TIMETABLE · SYLLABUS · AI CHAT</div>
-          <div class="student-grid-art" aria-hidden="true">
-            <span>MON</span><span>TUE</span><span>WED</span><i></i><i class="filled"></i><i></i><i class="filled"></i><i></i><i class="muted"></i><i></i><i class="muted"></i><i></i>
-          </div>
-        </div>
-        <div class="student-timetable-action">
-          <span class="student-icon-tile">${icon('calendar')}</span>
-          <p class="student-action-kicker">まずは、ここから</p>
-          <h2>時間割を開く</h2>
-          <p>登録した授業を確認して、<br>今日の学びをはじめましょう。</p>
-          <a class="student-primary" href="/mypage#timetable">ログインして時間割を開く ${icon('arrow')}</a>
-          <p class="student-account-note">アプリと同じGoogleアカウントで利用できます。</p>
-        </div>
+      <section class="student-timetable-first" aria-labelledby="student-title">
+        <h1 id="student-title">時間割</h1>
+        <p class="student-timetable-note">ログインすると、アプリに登録した授業が表の中に入ります。</p>
+        ${guestTimetableMarkup()}
       </section>
 
       <section class="student-shortcuts" aria-label="学習メニュー">
