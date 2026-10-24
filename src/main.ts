@@ -9,9 +9,9 @@ const localRedirect = studentPreviewRedirect(location.href, __STUDENT_PORTAL_BUI
 if(localRedirect) {
   location.replace(localRedirect)
 }else if(isStudentLanding(location.pathname, __STUDENT_PORTAL_BUILD__)) {
-  await import('./student.css')
-  const { renderStudentLanding } = await import('./components/StudentLanding')
-  renderStudentLanding()
+  // 紹介の画面は出さず、最初から時間割の画面にする(ログインしていなくても表が見える)。
+  history.replaceState(null, '', '/mypage' + (location.hash || '#timetable'))
+  await import('./site')
 }else if(location.pathname==='/ai-project-debug' && webAIEnabled()) {
   const { renderProjectDebug }=await import('./ai/project-debug')
   await renderProjectDebug()
