@@ -1415,5 +1415,12 @@ body.modal-open { overflow: hidden; }
   .is-app-top .mypage-tabs-bar { margin-bottom: 8px; }
   .is-app-top .tt-wrapper { margin-top: 0; }
   .is-app-top .tt-label-row { margin-bottom: 6px; }
-  .is-app-top .mypage { --tt-row-h: clamp(44px, calc((100svh - 400px) / 6), 100px); }
+  .is-app-top .mypage { --tt-row-h: clamp(44px, calc((100svh - 335px) / 6), 100px); }
 }
+
+/* ログイン前: ログインボタン・タブ・学期・説明を、1行に並べる(幅が足りなければ折り返す) */
+.mypage-guest-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 12px; }
+.mypage-guest-toolbar .mypage-tabs-bar { margin-bottom: 0; }
+.mypage-guest-toolbar .mypage-guest-term { margin: 0; }
+.mypage-guest-toolbar .mypage-guest-note { margin: 0 0 0 auto; font-size: 0.8rem; color: #5b6b7a; }
+@media (max-width: 640px) { .mypage-guest-toolbar .mypage-guest-note { margin-left: 0; flex-basis: 100%; } }
