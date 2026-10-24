@@ -57,7 +57,7 @@ export class CourseChat {
     this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=2;this.textarea.setAttribute('aria-label','AIへのメッセージ')
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
     const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
-    menuTitle.addEventListener('click',e=>{e.preventDefault();if(menu.open)this.closeMenu(menu);else{menu.classList.remove('ai-add-menu--closing');menu.open=true}})
+    menuTitle.addEventListener('click',e=>{e.preventDefault();if(menu.open)this.closeMenu(menu);else this.openMenu(menu)})
     menuBody.addEventListener('click',()=>this.closeMenu(menu))
     const outside=(e:Event)=>{if(menu.open&&!menu.contains(e.target as Node))this.closeMenu(menu)};document.addEventListener('pointerdown',outside);this.offOutside=()=>document.removeEventListener('pointerdown',outside)
     menu.addEventListener('keydown',e=>{if((e as KeyboardEvent).key==='Escape'&&menu.open){e.stopPropagation();this.closeMenu(menu);menuTitle.focus()}})
@@ -141,11 +141,22 @@ export class CourseChat {
     })
   }
   private offOutside?:()=>void
+  private menuTimer?:number
+  private menuAnimation(menu:HTMLDetailsElement,show:boolean){
+    const body=menu.querySelector<HTMLElement>('.ai-menu-items');if(!body||typeof body.animate!=='function')return
+    body.getAnimations().forEach(x=>x.cancel())
+    const hidden={opacity:0,transform:'translateY(8px) scale(.96)'},shown={opacity:1,transform:'none'}
+    body.animate(show?[hidden,shown]:[shown,hidden],{duration:show?160:140,easing:show?'cubic-bezier(.2,.8,.2,1)':'ease-in',fill:'both'})
+  }
+  private openMenu(menu:HTMLDetailsElement){
+    window.clearTimeout(this.menuTimer);menu.open=true;this.menuAnimation(menu,true)
+  }
   private closeMenu(menu:HTMLDetailsElement){
-    if(!menu.open||menu.classList.contains('ai-add-menu--closing'))return
+    if(!menu.open)return
+    window.clearTimeout(this.menuTimer)
     if(typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches){menu.open=false;return}
-    menu.classList.add('ai-add-menu--closing')
-    window.setTimeout(()=>{menu.open=false;menu.classList.remove('ai-add-menu--closing')},140)
+    this.menuAnimation(menu,false)
+    this.menuTimer=window.setTimeout(()=>{menu.open=false},140)
   }
   private showNote(){
     if(!this.controller)return
