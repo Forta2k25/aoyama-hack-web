@@ -10,6 +10,8 @@ import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 import { loadGuestSlots, setGuestCourse, removeGuestCourse } from '../guestTimetable'
 import { openGuestSlotPicker } from './GuestSlotPicker'
 import { mountAskBar, setAskBarVisible } from './AskBar'
+import { visibleGrid, loadTimetableSettings } from '../timetableSettings'
+import { openTimetableSettings } from './TimetableSettingsDrawer'
 
 const DAYS = [0, 1, 2, 3, 4] // 月〜金（土は登録があれば後から拡張）
 const MAX_PERIODS = 6
@@ -538,8 +540,9 @@ const PERIOD_TIMES: Record<number, [string, string]> = {
 }
 
 function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false, hideLabel = false, editable = false): string {
-  const days = hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS
-  const periods = Array.from({ length: MAX_PERIODS }, (_, i) => i + 1)
+  const grid0 = visibleGrid(loadTimetableSettings(), slots)
+  const days = guest ? (hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS) : grid0.days
+  const periods = guest ? Array.from({ length: MAX_PERIODS }, (_, i) => i + 1) : grid0.periods
 
   // slots を day/period でインデックス
   const grid: Record<string, TimetableSlot> = {}
@@ -703,7 +706,9 @@ export async function renderMyPage(user: AuthUser) {
       <div class="mypage-guest-toolbar">
         <span class="eyebrow mypage-guest-term">${label}</span>
         ${tabsBar}
-        <button class="btn btn-ghost mypage-signout" id="mypage-signout-btn" type="button">ログアウト</button>
+        <button class="btn btn-ghost mypage-settings-btn" id="mypage-settings-btn" type="button" aria-label="設定">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>設定</span>
+        </button>
       </div>
     `
     const friendsPanel = `
@@ -761,6 +766,11 @@ export async function renderMyPage(user: AuthUser) {
       })
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape'&&!document.querySelector('dialog[open]')) closeCourseModal() })
     }
+    document.getElementById('mypage-settings-btn')?.addEventListener('click', () => {
+      openTimetableSettings(slots, label, () => { void renderMyPage(user) }, () => {
+        void import('../auth').then(({ signOutUser }) => signOutUser()).then(() => { window.location.href = '/' })
+      })
+    })
     // 現在時刻ライン（時間割タブのみ）
     startNowLine()
     mountAskBar(() => { _askPicked = true })
