@@ -1441,3 +1441,14 @@ body.modal-open { overflow: hidden; }
 .tt-table.is-asking .tt-cell-empty { opacity: .45; pointer-events: none; }
 .has-ask-bar main.mypage { padding-bottom: 76px; }
 @media (min-width: 900px) { .is-app-top .mypage { --tt-row-h: clamp(44px, calc((100svh - 405px) / 6), 100px); } }
+
+/* ログイン前の上の1行: 左に学期、まんなかにタブ、右にログイン */
+.mypage-guest-toolbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px 16px; }
+.mypage-guest-toolbar .mypage-guest-term { justify-self: start; }
+.mypage-guest-toolbar .mypage-tabs-bar { justify-self: center; }
+.mypage-guest-toolbar .mypage-signin-compact { justify-self: end; }
+@media (max-width: 640px) {
+  .mypage-guest-toolbar { grid-template-columns: auto 1fr; }
+  .mypage-guest-toolbar .mypage-tabs-bar { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+  .mypage-guest-toolbar .mypage-signin-compact { grid-column: 2; grid-row: 1; }
+}

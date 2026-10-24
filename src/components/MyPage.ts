@@ -602,13 +602,12 @@ export async function renderMyPage(user: AuthUser) {
     const guestSlots = loadGuestSlots(termLabel())
     container.innerHTML = `
       <div class="mypage-guest-toolbar">
-        <button class="btn btn-primary mypage-signin-compact" id="mypage-signin-btn" type="button">${googleMark()}ログインして同期</button>
+        <span class="eyebrow mypage-guest-term">${termLabel()}</span>
         <div class="mypage-tabs-bar">
           <button class="mypage-tab mypage-tab--active" id="tab-timetable" type="button">時間割</button>
           <button class="mypage-tab" id="tab-syllabus" type="button">シラバス</button>
         </div>
-        <span class="eyebrow mypage-guest-term">${termLabel()}</span>
-        <p class="mypage-guest-note">ログインすると、アプリの時間割が表示されます。</p>
+        <button class="btn btn-primary mypage-signin-compact" id="mypage-signin-btn" type="button">${googleMark()}ログインして時間割を同期</button>
       </div>
       <div id="tab-panel-timetable">${timetableMarkup(guestSlots, termLabel(), guestSlots.some((x) => x.day === 5), true)}</div>
       <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
