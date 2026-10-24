@@ -1504,3 +1504,12 @@ body.modal-open { overflow: hidden; }
 }
 
 .mypage-guest-toolbar .mypage-signout { justify-self: end; }
+
+/* 自分の時間割の授業の詳細: 色の変更と、時間割から外す */
+.course-edit-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 14px; padding: 10px 14px; margin-bottom: 14px; border-radius: 14px; background: #f3f7f5; }
+.course-edit-colors { display: flex; gap: 8px; }
+.course-edit-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(12,30,48,.18); cursor: pointer; padding: 0; }
+.course-edit-swatch[aria-checked="true"] { box-shadow: 0 0 0 2.5px #0a6b48; }
+.course-edit-swatch:focus-visible { outline: 2px solid #0a6b48; outline-offset: 2px; }
+.course-edit-remove { border: 1px solid #e0b4b0; background: #fff; color: #b3261e; border-radius: 999px; padding: 6px 14px; font-size: .82rem; cursor: pointer; }
+.course-edit-remove:hover { background: #fdf0ef; }

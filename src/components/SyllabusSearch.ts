@@ -71,6 +71,8 @@ interface SearchResult {
   term: string
   dayPeriod?: string
   evalMethod?: string  // 成績評価方法 (例: "平常点100%")
+  campus?: string
+  category?: string
 }
 
 interface FilterState {
@@ -240,6 +242,8 @@ function docToResult(id: string, d: Record<string, unknown>): SearchResult {
     term:               String(d['term'] ?? ''),
     dayPeriod,
     evalMethod:         String(d['eval_method'] ?? '') || undefined,
+    campus:             typeof d['campus'] === 'string' ? d['campus'] : undefined,
+    category:           typeof d['category'] === 'string' ? d['category'] : undefined,
   }
 }
 
@@ -301,6 +305,8 @@ export async function searchCoursesForSlot(day: number, period: number): Promise
     room: r.room,
     teacher: r.teacher,
     credits: r.credit ? Number(r.credit) : undefined,
+    campus: r.campus,
+    category: r.category,
     syllabusURL: r.syllabusURL,
     firestoreDocID: r.firestoreId || undefined,
   }))

@@ -365,6 +365,8 @@ function courseDetailBodyMarkup(
 let _outsideClickHandler: ((e: MouseEvent) => void) | null = null
 // 「AIに質問する」バーでコマを選んだあと、その授業は、AIチャットのタブから開く
 let _askPicked = false
+// ログイン中の、自分の時間割を編集するための情報(ログイン前・友だちの時間割では、無し)
+let _editor: { uid: string; reload: () => void } | undefined
 const takeAskPick = () => { const picked = _askPicked; _askPicked = false; return picked }
 // コマを押したとき: 「AIに質問する」から選んだ場合は、ChatGPTのような全画面のチャットを開く。それ以外は、授業の詳細。
 function openCourseFromCell(course: import('../timetable').Course) {
@@ -429,6 +431,33 @@ export function openCourseModal(course: import('../timetable').Course, allowAI=t
   syllabusHost.id=`course-${ticket}-panel-syllabus`;if(available){syllabusHost.setAttribute('role','tabpanel');syllabusHost.setAttribute('aria-labelledby',`course-${ticket}-tab-syllabus`)}
   if(available){aiHost=document.createElement('div');aiHost.id=`course-${ticket}-panel-ai`;aiHost.setAttribute('role','tabpanel');aiHost.setAttribute('aria-labelledby',`course-${ticket}-tab-ai`);aiHost.hidden=true}
   if(available)shell.append(tabs);shell.append(syllabusHost);if(aiHost)shell.append(aiHost);body.replaceChildren(shell)
+  // 自分の時間割の授業なら、アプリと同じように、色の変更と、時間割から外す操作を出す。
+  const editorState=_editor,slotMatch=allowAI&&editorState?course.timetableRecord?.match(/^(.*):(?:cells\.)?d(\d+)p(\d+)$/):null
+  if(editorState&&slotMatch){
+    const termDocId=slotMatch[1],day=Number(slotMatch[2]),period=Number(slotMatch[3])
+    void import('../timetableEdit').then(({SLOT_COLORS,DEFAULT_SLOT_COLOR,setSlotColor,deleteSlot})=>{
+      if(ticket!==_courseRequest)return
+      const bar=document.createElement('div');bar.className='course-edit-bar'
+      const swatches=document.createElement('div');swatches.className='course-edit-colors';swatches.setAttribute('role','radiogroup');swatches.setAttribute('aria-label','コマの色')
+      const current=course.colorKey&&SLOT_COLORS.some(c=>c.key===course.colorKey)?course.colorKey:DEFAULT_SLOT_COLOR
+      const fail=()=>window.alert('時間割を更新できませんでした。通信を確認して、もう一度お試しください。')
+      for(const color of SLOT_COLORS){
+        const swatch=document.createElement('button');swatch.type='button';swatch.className='course-edit-swatch';swatch.style.background=color.css
+        swatch.title=color.label;swatch.setAttribute('role','radio');swatch.setAttribute('aria-label',color.label);swatch.setAttribute('aria-checked',String(color.key===current))
+        swatch.addEventListener('click',()=>{
+          if(color.key===current)return
+          void setSlotColor(editorState.uid,termDocId,day,period,course,color.key).then(()=>{closeCourseModal();editorState.reload()}).catch(fail)
+        })
+        swatches.append(swatch)
+      }
+      const remove=document.createElement('button');remove.type='button';remove.className='course-edit-remove';remove.textContent='時間割から外す'
+      remove.addEventListener('click',()=>{
+        if(!window.confirm(`「${course.title}」を時間割から外します。アプリの時間割からも外れます。よろしいですか?`))return
+        void deleteSlot(editorState.uid,termDocId,day,period).then(()=>{closeCourseModal();editorState.reload()}).catch(fail)
+      })
+      bar.append(swatches,remove);shell.prepend(bar)
+    }).catch(()=>{/* 編集の部品を読めなくても、授業の詳細は、そのまま見られる */})
+  }
   const updateSyllabus=(loading:boolean)=>{syllabusHost.innerHTML=courseDetailBodyMarkup(course,detail,syllabus,loading)}
   updateSyllabus(true);selectTab(initialTab==='ai'&&available?'ai':'syllabus')
   if(desktop){
@@ -498,15 +527,6 @@ function loadingMarkup() {
   `
 }
 
-function emptyMarkup(label: string) {
-  return `
-    <div class="mypage-empty">
-      <p>${label}の時間割はまだ登録されていません。</p>
-      <p>アプリから授業を登録してください。</p>
-    </div>
-  `
-}
-
 const PERIOD_TIMES: Record<number, [string, string]> = {
   1: ['9:00',  '10:30'],
   2: ['11:00', '12:30'],
@@ -517,7 +537,7 @@ const PERIOD_TIMES: Record<number, [string, string]> = {
   7: ['20:10', '21:40'],
 }
 
-function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false, hideLabel = false): string {
+function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boolean, guest = false, hideLabel = false, editable = false): string {
   const days = hasSaturday ? [0, 1, 2, 3, 4, 5] : DAYS
   const periods = Array.from({ length: MAX_PERIODS }, (_, i) => i + 1)
 
@@ -532,7 +552,7 @@ function timetableMarkup(slots: TimetableSlot[], label: string, hasSaturday: boo
     const cells = days.map((d) => {
       const slot = grid[`${d}-${p}`]
       if (!slot) {
-        return guest
+        return guest || editable
           ? `<td class="tt-cell tt-cell-empty tt-cell-add"><button class="tt-add" type="button" data-day="${d}" data-period="${p}" aria-label="${dayName(d)}曜${p}限に授業を追加">＋</button></td>`
           : `<td class="tt-cell tt-cell-empty"><div class="tt-cell-inner"></div></td>`
       }
@@ -610,6 +630,7 @@ export async function renderMyPage(user: AuthUser) {
     if (!document.getElementById('course-modal')) {
       document.body.insertAdjacentHTML('beforeend', courseDetailModalMarkup())
     }
+    _editor = undefined
     const guestSlots = loadGuestSlots(termLabel())
     container.innerHTML = `
       <div class="mypage-guest-toolbar">
@@ -697,21 +718,29 @@ export async function renderMyPage(user: AuthUser) {
       document.body.insertAdjacentHTML('beforeend', courseDetailModalMarkup())
     }
 
-    if (slots.length === 0) {
-      container.innerHTML = `
-        ${toolbar}
-        <div id="tab-panel-timetable">${emptyMarkup(label)}</div>
-        <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
-        ${friendsPanel}
-      `
-    } else {
+    {
       const hasSaturday = slots.some((s) => s.day === 5)
       container.innerHTML = `
         ${toolbar}
-        <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday, false, true)}</div>
+        <div id="tab-panel-timetable">${timetableMarkup(slots, label, hasSaturday, false, true, true)}</div>
         <div id="tab-panel-syllabus" hidden>${syllabusSearchMarkup()}</div>
         ${friendsPanel}
       `
+      // 時間割の編集(授業の追加・色・削除)は、アプリと同じ保存先に書く。書いたあとは、画面を読み直す。
+      _editor = { uid: user.uid, reload: () => { void renderMyPage(user) } }
+      container.querySelectorAll<HTMLButtonElement>('.tt-add').forEach((button) => {
+        button.addEventListener('click', () => {
+          const day = Number(button.dataset.day), period = Number(button.dataset.period)
+          openGuestSlotPicker(day, period, (course) => {
+            button.disabled = true
+            // 名前だけで足した授業は、登録番号を空にする(アプリで手で足した授業と同じ)
+            const saved = course.id.startsWith('manual-') ? { ...course, id: '' } : course
+            void import('../timetableEdit').then(({ saveCourseToSlot, currentTermDocId }) => saveCourseToSlot(user.uid, currentTermDocId(), day, period, saved))
+              .then(() => { void renderMyPage(user) })
+              .catch(() => { button.disabled = false; window.alert('時間割に追加できませんでした。通信を確認して、もう一度お試しください。') })
+          })
+        })
+      })
       // コマのクリックイベント
       container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
         const handler = () => {

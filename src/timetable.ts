@@ -52,7 +52,7 @@ export interface TimetableSlot {
 const DAY_NAMES = ['月', '火', '水', '木', '金', '土']
 
 // Firestore のドキュメントIDは "assignedCourses.{year}_{semester}"
-function currentTermDocId(): string {
+export function currentTermDocId(): string {
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() + 1
@@ -107,21 +107,18 @@ export async function fetchTimetable(uid: string): Promise<TimetableSlot[]> {
   return slots
 }
 
-// 色キー → CSS色（アプリの SlotColor に合わせた淡いパステル系）
-const COLOR_MAP: Record<string, string> = {
-  red:    '#fde8e8',
-  orange: '#fdefd8',
-  yellow: '#fdf8d8',
-  green:  '#e2f5e8',
-  mint:   '#d8f5ef',
-  sky:    '#daf0fb',
-  blue:   '#dde8fb',
-  purple: '#ece0fb',
-  pink:   '#fde0ee',
-  brown:  '#f0e8df',
-}
-
-export const slotColor = (key?: string) => (key ? (COLOR_MAP[key] ?? '#f0f0f0') : '#f0f0f0')
+// 色キー → CSS色。アプリ(SlotColor.swift)と同じ7色。コマの表示色は、アプリと同じく、色を白と半分ずつ混ぜた淡い色。
+export const SLOT_COLORS = [
+  { key: 'teal',   label: '水色',   css: '#7fc5d9' },
+  { key: 'blue',   label: '青',     css: '#80bdff' },
+  { key: 'green',  label: '緑',     css: '#99e3ac' },
+  { key: 'orange', label: 'オレンジ', css: '#ffca7f' },
+  { key: 'red',    label: '赤',     css: '#ff9d97' },
+  { key: 'gray',   label: 'グレー', css: '#c6c6c9' },
+  { key: 'purple', label: '紫',     css: '#d7a8ee' },
+] as const
+export const DEFAULT_SLOT_COLOR = 'green'   // アプリで、色が決まっていない授業の色
+export const slotColor = (key?: string) => (SLOT_COLORS.find(c => c.key === key) ?? SLOT_COLORS.find(c => c.key === DEFAULT_SLOT_COLOR)!).css
 export const dayName = (day: number) => DAY_NAMES[day] ?? ''
 
 export interface CourseDetail {

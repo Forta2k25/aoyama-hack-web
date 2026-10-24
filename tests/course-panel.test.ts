@@ -17,7 +17,7 @@ mock.module('../src/auth.ts',{namedExports:{getUser:()=>({uid:'synthetic-panel-o
 mock.module('../src/ai/backend.ts',{namedExports:{FirebaseAIBackend:class extends DemoAIBackend{constructor(_uid:string){super()}override async chat(request:any){chatCalls.push(request);return {text:'授業の参照情報を確認しました'}}}}})
 const {openCourseModal,closeCourseModal}=await import('../src/components/MyPage.ts')
 const c=(id:string)=>({id,title:`授業${id}`,teacher:'架空教員',room:'',firestoreDocID:'00004',academicYear:2026})
-const flush=()=>new Promise(r=>setTimeout(r,20))
+const flush=()=>new Promise(r=>setTimeout(r,120))
 test('late syllabus A response never replaces selected course B or its AI panel',async()=>{
  openCourseModal(c('A'));openCourseModal(c('B'));resolves.get('B')!({});await flush();resolves.get('A')!({});await flush()
  const root=document.getElementById('course-side-body')!;assert(root.textContent!.includes('授業B'));assert(!root.textContent!.includes('授業A'))
