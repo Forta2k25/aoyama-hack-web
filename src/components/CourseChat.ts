@@ -1,3 +1,4 @@
+import {pdfCover} from '../ai/pdfcover'
 import {chunkText,docxCover,docxMime,docxText,isDocx} from '../ai/docx'
 import type {ChatSyllabus} from '../ai/syllabus'
 import type {LectureMeeting} from '../ai/calendar'
@@ -145,7 +146,7 @@ export class CourseChat {
       if(this.disposed)break
       if(isHEIC(file,file.name))this.status.textContent='HEIC/HEIFをこの端末でJPEGに変換しています…'
       if(isDocx(file)){await this.addWord(file);continue}
-      await this.perform(async()=>{const row=await this.controller!.stageFile(file);this.recentAttachments.add(row.id);this.render()})
+      await this.perform(async()=>{const row=await this.controller!.stageFile(file);this.recentAttachments.add(row.id);this.render();if(row.type==='pdf')void pdfCover(file).then(blob=>{if(blob&&!this.disposed){this.covers.set(row.id,{url:URL.createObjectURL(blob),label:'PDF'});this.render()}})})
     }
     if(files.length>8)this.status.textContent='一度に追加できる資料は8件までです。'
   }
