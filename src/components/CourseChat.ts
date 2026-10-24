@@ -70,11 +70,18 @@ export class CourseChat {
     this.composerBody.id=`ai-composer-body-${crypto.randomUUID()}`;this.composerToggle.setAttribute('aria-controls',this.composerBody.id);this.composerToggle.setAttribute('aria-expanded','true')
     const composerHeader=el('div','ai-composer-header');composerHeader.append(this.composerToggle,this.stop)
     tools.append(menu,this.send);this.composerBody.append(this.attachments,this.textarea,tools,fileInput);this.composer.append(composerHeader,this.sendWait,this.composerBody)
-    this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled||this.composerCollapsed)return;const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
+    this.composer.addEventListener('submit',e=>{e.preventDefault();if(this.send.disabled||this.composerCollapsed)return;const text=this.textarea.value;if(!text.trim())return;void this.perform(async()=>{const sent=await this.controller!.send(text);if(sent&&!this.disposed){for(const id of this.attachmentCards.keys())this.dismissedAttachments.add(id);this.renderAttachments()}if(sent&&!this.disposed&&this.textarea.value===text)this.textarea.value=''})})
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);this.closeMenu(menu)})
-    this.root.addEventListener('dragover',e=>{e.preventDefault();this.root.classList.add('ai-dragging')})
-    this.root.addEventListener('dragleave',()=>this.root.classList.remove('ai-dragging'))
-    this.root.addEventListener('drop',e=>{e.preventDefault();this.root.classList.remove('ai-dragging');void this.addFiles([...e.dataTransfer?.files??[]])})
+    const overlay=el('div','ai-drop-overlay');overlay.hidden=true;overlay.setAttribute('aria-hidden','true')
+    overlay.append(el('div','ai-drop-icon'),el('strong','','何でも追加できます'),el('span','','ここにファイルをドロップすると、会話に追加されます'))
+    const dropTarget:HTMLElement=this.root.closest('dialog')??this.root;let dragDepth=0
+    const hasFiles=(e:DragEvent)=>[...(e.dataTransfer?.types??[])].includes('Files')
+    const endDrag=()=>{dragDepth=0;overlay.hidden=true}
+    dropTarget.addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth++;overlay.hidden=false})
+    dropTarget.addEventListener('dragover',e=>{if(hasFiles(e))e.preventDefault()})
+    dropTarget.addEventListener('dragleave',e=>{if(!hasFiles(e))return;dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)overlay.hidden=true})
+    dropTarget.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();endDrag();void this.addFiles([...e.dataTransfer?.files??[]])})
+    this.root.append(overlay)
     this.root.append(this.status,this.composer,this.caption)
     try{
       const context=this.context??await resolveContext(this.course,this.store,this.uid),canonical=offeringId(context)
@@ -135,7 +142,7 @@ export class CourseChat {
       const chunks=chunkText(await docxText(file))
       if(!chunks.length)throw Error('WEB_Wordファイルに本文が見つかりませんでした。')
       if(chunks.length>8)throw Error('WEB_Wordファイルが長すぎます。8万文字以内にするか、PDFにして追加してください。')
-      for(const text of chunks){const row=await this.controller!.stageNote(text);this.recentAttachments.add(row.id)}
+      for(const [i,text] of chunks.entries()){const row=await this.controller!.stageNote(text,chunks.length>1?`${file.name}（${i+1}/${chunks.length}）`:file.name);this.recentAttachments.add(row.id)}
       this.render()
       this.status.textContent=`Wordファイル「${file.name}」の本文を資料として追加しました。`
     })

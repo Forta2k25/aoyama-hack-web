@@ -336,20 +336,27 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-attachment-icon--pdf,.ai-attachment-icon--note { --ai-attachment-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l5 5v13H6z'/%3E%3Cpath d='M14 3v5h5M9 13h6M9 17h6'/%3E%3C/svg%3E") }
 
 
-/* 添付は、ChatGPTのように、小さなチップで見せる。状態の文字は、完了前と失敗のときだけ出す。 */
-.ai-attachment-card { flex:0 0 auto;max-width:210px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:5px 6px 5px 5px;border-radius:12px;background:#f4f6f5 }
-.ai-attachment-card[data-state=failed] { background:#fff8f0 }
-.ai-attachment-open { width:auto;flex:1 1 0;gap:8px }
-.ai-attachment-preview { width:34px;height:34px;border-radius:8px }
-.ai-attachment-info { gap:0 }
+/* 添付は、ChatGPTのように、画像(または種類)を上に、ファイル名を下に置いたカードで見せる。送信すると、入力欄から消える。 */
+.ai-composer-attachments { gap:10px;padding:0 0 10px }
+.ai-attachment-card { position:relative;flex:0 0 150px;max-width:150px;display:block;padding:0;border:1px solid #dfe5e2;border-radius:14px;background:#fff;overflow:hidden }
+.ai-attachment-card[data-state=failed] { border-color:#d9a87d;background:#fff8f0 }
+.ai-attachment-open { display:block;width:100%;padding:0 }
+.ai-attachment-preview { display:grid;place-items:center;width:100%;height:96px;border-radius:0;background:#f1f4f2 }
+.ai-attachment-preview img { width:100%;height:100%;object-fit:cover }
+.ai-attachment-info { display:grid;gap:1px;padding:7px 10px 8px }
+.ai-attachment-name { font-size:12px;font-weight:600 }
 .ai-attachment-card[data-state=ready] .ai-attachment-status { display:none }
-.ai-attachment-card progress { flex:1 0 100%;margin-top:0 }
 .ai-attachment-card[data-state=ready] progress { display:none }
-.ai-attachment-tools { margin:0 }
-.ai-attachment-tools .ai-attachment-dismiss { position:relative;width:20px;height:20px;padding:0;border:0;border-radius:50%;background:#e2e7e4;font-size:0!important;color:transparent }
-.ai-attachment-tools .ai-attachment-dismiss::before { content:'×';position:absolute;inset:0;display:grid;place-items:center;font-size:14px;line-height:1;color:#555 }
-@media (max-width:640px) { .ai-attachment-card { flex-basis:auto } }
+.ai-attachment-card progress { margin:0 10px 8px;width:calc(100% - 20px) }
+.ai-attachment-tools { position:absolute;top:6px;right:6px;margin:0;gap:4px }
+.ai-attachment-tools .ai-attachment-retry { background:#fff }
+.ai-attachment-tools .ai-attachment-dismiss { position:relative;width:22px;height:22px;padding:0;border:0;border-radius:50%;background:#1f2321cc;font-size:0!important;color:transparent }
+.ai-attachment-tools .ai-attachment-dismiss::before { content:'×';position:absolute;inset:0;display:grid;place-items:center;font-size:15px;line-height:1;color:#fff }
 
-/* 完了した資料は、入力欄に出さない。解析中と失敗のときだけ、チップを出す。 */
-.ai-attachment-card[data-state=ready] { display:none }
-.ai-composer-attachments:not(:has(.ai-attachment-card:not([data-state=ready]))) { display:none }
+/* ファイルをドラッグしている間、画面いっぱいに出す案内。 */
+.ai-drop-overlay { position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#ffffffe6;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);pointer-events:none;text-align:center;padding:24px;animation:ai-drop-in .15s ease-out }
+.ai-drop-overlay[hidden] { display:none }
+.ai-drop-overlay strong { font-size:22px }
+.ai-drop-overlay span { font-size:14px;color:#555 }
+.ai-drop-icon { width:72px;height:72px;margin-bottom:8px;border-radius:20px;background:#e4efe9 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23457861' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 16V5M7 10l5-5 5 5M5 19h14'/%3E%3C/svg%3E") center/40px no-repeat }
+@keyframes ai-drop-in { from { opacity:0 } to { opacity:1 } }

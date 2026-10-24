@@ -119,10 +119,10 @@ export class AIController {
       return await this.stage(type,file.name,mimeFor(prepared,type),prepared.size,{file:prepared,...(type==='audio'?{durationSeconds:await audioDurationSeconds(file)}:{})},preparation)
     }finally{this.preparingMaterials.delete(preparation);this.notify()}
   }
-  async stageNote(text:string){
+  async stageNote(text:string,title='資料メモ'){
     if(!text.trim()||text.length>10000)throw Error('WEB_メモは1〜10,000文字で入力してください。')
     const preparation=Symbol();this.preparingMaterials.add(preparation);this.notify()
-    try{return await this.stage('note','資料メモ','text/plain',new Blob([text]).size,{text:text.trim()},preparation)}
+    try{return await this.stage('note',title,'text/plain',new Blob([text]).size,{text:text.trim()},preparation)}
     finally{this.preparingMaterials.delete(preparation);this.notify()}
   }
   private async stage(type:SourceKind,title:string,mime:string,size:number,content:Pick<LocalMaterial,'file'|'text'|'durationSeconds'>,preparation:symbol){
