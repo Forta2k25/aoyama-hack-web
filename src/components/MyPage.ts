@@ -9,6 +9,7 @@ import { type SyllabusContent, type EvalItem } from '../syllabus'
 import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 import { loadGuestSlots, setGuestCourse, removeGuestCourse } from '../guestTimetable'
 import { openGuestSlotPicker } from './GuestSlotPicker'
+import { fetchProfile, profileCardMarkup, bindProfileCard } from './ProfileCard'
 import { mountAskBar, setAskBarVisible } from './AskBar'
 import { visibleGrid, loadTimetableSettings } from '../timetableSettings'
 import { openTimetableSettings } from './TimetableSettingsDrawer'
@@ -118,16 +119,18 @@ async function loadFriendsTab(currentUID: string) {
   panel.innerHTML = `<div class="mypage-loading"><div class="mypage-spinner"></div><span>読み込み中...</span></div>`
 
   try {
-    const friends = await fetchFriends(currentUID)
+    const [friends, profile, myAvatar] = await Promise.all([fetchFriends(currentUID), fetchProfile(currentUID), getAvatarURL(currentUID)])
     const avatars = await Promise.all(friends.map(f => getAvatarURL(f.uid)))
 
     panel.innerHTML = `
       <div class="friend-list-section">
+        ${profileCardMarkup(profile, friendAvatarHTML(profile.name, myAvatar))}
         ${friendsListHTML(friends, avatars)}
       </div>
       <div class="friend-tt-section" hidden></div>
     `
 
+    bindProfileCard(panel)
     panel.querySelectorAll<HTMLButtonElement>('.friend-card').forEach(card => {
       card.addEventListener('click', () => {
         const uid  = card.dataset.uid!
