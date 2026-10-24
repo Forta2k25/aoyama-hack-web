@@ -8,7 +8,7 @@ import { materialProgress } from '../ai/material-progress'
 import { AIController } from '../ai/controller'
 import { AIStore } from '../ai/store'
 import { resolveContext, offeringId, courseKey, dateForDayID } from '../ai/identity'
-import { evidenceText, metadataText, safeError } from '../ai/format'
+import { evidenceText, metadataText, compactMetadataText, safeError } from '../ai/format'
 import type { AIBackend, CourseContext, Evidence, LocalMaterial, Message } from '../ai/types'
 
 function el<K extends keyof HTMLElementTagNameMap>(tag:K,className='',text?:string){const node=document.createElement(tag);node.className=className;if(text!==undefined)node.textContent=text;return node}
@@ -227,7 +227,7 @@ export class CourseChat {
     const body=bubble.querySelector<HTMLElement>('.ai-message-text')!,text=message.text||(message.state==='sending'?'考えています…':'')
     if(message.role==='assistant')renderAnswer(body,text)
     else body.textContent=text
-    bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?(message.progress?.status==='continuing'?'回答が長いため続きを生成しています…':message.progress?.status==='retrying'?'接続が一時的に切れました。続きを再取得しています…':'返信中…'):message.state==='failed'?'回答を生成できませんでした。'+(message.error||''):message.state==='interrupted'?'回答が途中で中断されました。表示済みの内容は保持しています。'+(message.error?' '+message.error:''):message.recognition?metadataText(message.recognition):''
+    bubble.querySelector('.ai-message-state')!.textContent=message.state==='sending'?(message.progress?.status==='continuing'?'回答が長いため続きを生成しています…':message.progress?.status==='retrying'?'接続が一時的に切れました。続きを再取得しています…':'返信中…'):message.state==='failed'?'回答を生成できませんでした。'+(message.error||''):message.state==='interrupted'?'回答が途中で中断されました。表示済みの内容は保持しています。'+(message.error?' '+message.error:''):message.recognition?(this.root.closest('.ai-chat-screen--ask')?compactMetadataText(message.recognition):metadataText(message.recognition)):''
     let resume=bubble.querySelector<HTMLButtonElement>('.ai-answer-resume')
     if(!resume&&message.role==='assistant'){resume=button('続きから再開',()=>void this.perform(()=>this.controller!.resume(message.id)),'ai-small-button ai-answer-resume');bubble.append(resume)}
     if(resume){resume.hidden=!message.canResume||message.state==='sending';resume.disabled=!!this.controller?.sending}

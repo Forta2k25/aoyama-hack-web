@@ -274,3 +274,17 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-chat-screen--ask .ai-add-toggle::-webkit-details-marker { display:none }
 .ai-chat-screen--ask .ai-send { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 13V3M3.5 7.5 8 3l4.5 4.5'/%3E%3C/svg%3E");background-size:16px 16px;background-position:center;background-repeat:no-repeat;background-color:#1b1f1d }
 .ai-chat-screen--ask .ai-send:disabled { background-color:#d8dcda }
+
+/* 会話の見た目: ChatGPTのように。自分の発言は、右寄せの小さな吹き出し(ラベルなし)。AIの返信は、枠なしの文章。 */
+.ai-chat-screen--ask .ai-message-role { display:none }
+.ai-chat-screen--ask .ai-thread { padding:6px 0 24px }
+.ai-chat-screen--ask .ai-message { margin:0 0 26px }
+.ai-chat-screen--ask .ai-message--user { display:block;width:fit-content;max-width:min(75%,560px);margin:0 0 26px auto;padding:9px 16px;border-radius:20px;background:#f1f3f2 }
+.ai-chat-screen--ask .ai-message--user .ai-message-text { font-size:15px;line-height:1.6 }
+.ai-chat-screen--ask .ai-message--assistant { padding:0;max-width:100% }
+.ai-chat-screen--ask .ai-message--assistant .ai-message-text { font-size:15px;line-height:1.8 }
+.ai-chat-screen--ask .ai-message-state { margin-top:8px;font-size:12px;color:#8a948f;white-space:normal }
+.ai-chat-screen--ask .ai-message--user .ai-message-state { display:none }
+.ai-chat-screen--ask .ai-message-actions { margin-top:6px;gap:4px }
+.ai-chat-screen--ask .ai-message-actions .ai-small-button { min-height:28px;padding:3px 9px;border:0;background:transparent;color:#6b7570;font-size:12px }
+.ai-chat-screen--ask .ai-message-actions .ai-small-button:hover { background:#f1f3f2 }

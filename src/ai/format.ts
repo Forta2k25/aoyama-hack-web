@@ -1,5 +1,5 @@
 import type { EvidenceChunk, Recognition, SourceKind } from './types'
-import { estimatedCostText } from './cost'
+import { estimatedCostText, costDisplay } from './cost'
 export function evidenceText(chunks: EvidenceChunk[]): string {
   let result = '', key = '', end: number | undefined
   for (const c of [...chunks].sort((a,b) => a.chunkId.localeCompare(b.chunkId))) {
@@ -23,6 +23,18 @@ export function metadataText(r?: Recognition | null): string {
     r.totalTokens != null ? `入力 ${r.inputTokens != null ? r.inputTokens.toLocaleString() : '未取得'} / 出力 ${r.outputTokens != null ? r.outputTokens.toLocaleString() : '未取得'} / 合計 ${r.totalTokens.toLocaleString()} tokens` : 'usage未取得'
   const price = estimatedCostText(r.estimatedCostUSD)
   return [rows, r.audioDurationSeconds!=null?`音声 ${r.audioDurationSeconds.toFixed(1)} 秒`:'', r.processingMs!=null?`処理 ${(r.processingMs/1000).toFixed(2)} 秒`:'', tokens, price, r.pricingAsOf?`料金基準: ${r.pricingAsOf}`:''].filter(Boolean).join('\n')
+}
+/** 「AIに質問する」の全画面チャット用。返信までの時間・token・金額だけを、1行で見せる。 */
+export function compactMetadataText(r?: Recognition | null): string {
+  if (!r) return ''
+  const parts: string[] = []
+  if (r.processingMs != null) parts.push(`${(r.processingMs / 1000).toFixed(1)}秒`)
+  if (r.totalTokens != null) parts.push(`${r.totalTokens.toLocaleString()} tokens`)
+  if (r.estimatedCostUSD != null && Number.isFinite(r.estimatedCostUSD) && r.estimatedCostUSD >= 0) {
+    const yen = r.estimatedCostUSD * costDisplay.usdToJpy
+    parts.push(yen > 0 && yen < 0.0001 ? '¥0.0001未満' : `¥${yen.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: yen < 1 ? 4 : 2 })}`)
+  }
+  return parts.join(' · ')
 }
 export const statusLabel: Record<string,string> = { local:'未送信', uploading:'送信中', awaiting_upload:'送信待ち', queued:'解析待ち', extracting:'解析中', indexing:'保存中', processing:'解析中', ready:'完了', partial_ready:'部分完了', failed:'再試行できます', deleting:'削除中', deleted:'削除済み' }
 export function fileKind(file: File): SourceKind {
