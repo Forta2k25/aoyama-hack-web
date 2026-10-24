@@ -1405,3 +1405,15 @@ body.modal-open { overflow: hidden; }
 
 /* 時間割は、画面の高さに合わせて1画面に収める(縦にスクロールしなくてよい) */
 .mypage { --tt-row-h: clamp(44px, calc((100svh - 410px) / 6), 88px); }
+
+/* パソコン版のトップ(時間割): 余白とフッターを詰めて、スクロールなしで1画面に収める */
+@media (min-width: 900px) {
+  .is-app-top footer { display: none; }
+  .is-app-top main.mypage { min-height: 0; }
+  .is-app-top main.mypage .content-page { padding: 16px 28px 20px; gap: 6px; }
+  .is-app-top .mypage-header { margin-bottom: 6px; }
+  .is-app-top .mypage-tabs-bar { margin-bottom: 8px; }
+  .is-app-top .tt-wrapper { margin-top: 0; }
+  .is-app-top .tt-label-row { margin-bottom: 6px; }
+  .is-app-top .mypage { --tt-row-h: clamp(44px, calc((100svh - 400px) / 6), 100px); }
+}

@@ -6,6 +6,8 @@ import { renderMyPage } from './components/MyPage'
 
 const pathname = window.location.pathname
 const shouldShowSplash = pathname === '/aoyama-hack'
+// トップ(時間割)は、パソコンでも、スクロールせずに1画面に収める
+document.body.classList.toggle('is-app-top', pathname === '/')
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `${shouldShowSplash ? splashMarkup : ''}${getSiteLayoutMarkup(pathname)}`
 
