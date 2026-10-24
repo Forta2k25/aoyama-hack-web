@@ -965,7 +965,7 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   background: linear-gradient(135deg, #edf6f2, #f2f8f5);
   border-top: 1px solid #e0e9e4;
   padding: 6px 2px;
-  height: 88px;
+  height: var(--tt-row-h, 88px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -992,7 +992,7 @@ footer { border-top: 1px solid #e4e9f5; padding: 30px 0 44px; display: grid; gri
   padding: 0;
 }
 .tt-cell-inner {
-  height: 88px;
+  height: var(--tt-row-h, 88px);
   padding: 8px 8px;
   display: flex;
   flex-direction: column;
@@ -1269,7 +1269,7 @@ body.modal-open { overflow: hidden; }
 @media (max-width: 640px) {
   .course-modal-card { padding: 28px 24px; border-radius: 16px; }
   .tt-cell { min-width: 72px; }
-  .tt-cell-inner { height: 80px; padding: 6px; }
+  .tt-cell-inner { height: var(--tt-row-h, 80px); padding: 6px; }
 }
 
 /* エラー・空状態 */
@@ -1382,7 +1382,7 @@ body.modal-open { overflow: hidden; }
 
 /* ログイン前の時間割: 空きコマの＋と、授業を外す× */
 .tt-cell-add { padding: 0; }
-.tt-add { display: flex; align-items: center; justify-content: center; width: 100%; height: 88px; padding: 0; border: 0; background: transparent; color: #b7c7bf; font-size: 1.5rem; line-height: 1; cursor: pointer; transition: background .15s, color .15s; }
+.tt-add { display: flex; align-items: center; justify-content: center; width: 100%; height: var(--tt-row-h, 88px); padding: 0; border: 0; background: transparent; color: #b7c7bf; font-size: 1.5rem; line-height: 1; cursor: pointer; transition: background .15s, color .15s; }
 .tt-add:hover, .tt-add:focus-visible { background: #eef6f2; color: #2d8067; outline: none; }
 .tt-cell-filled { position: relative; }
 .tt-remove { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border: 0; border-radius: 50%; background: rgba(0,0,0,.12); color: #fff; font-size: .8rem; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .15s; }
@@ -1402,3 +1402,6 @@ body.modal-open { overflow: hidden; }
 .slot-picker-item span { font-size: .8rem; color: #5b6b7a; }
 .slot-picker-note { margin: 8px 2px; font-size: .85rem; color: #5b6b7a; }
 .slot-picker-manual { display: flex; gap: 8px; }
+
+/* 時間割は、画面の高さに合わせて1画面に収める(縦にスクロールしなくてよい) */
+.mypage { --tt-row-h: clamp(44px, calc((100svh - 410px) / 6), 88px); }
