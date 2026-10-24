@@ -58,3 +58,11 @@ test('アプリが時間割に保存した授業の識別子があれば、Web�
   assert.notEqual(without.localCourseUUID,appUUID.toLowerCase(),'識別子が無いコマは、これまでどおり、Webの中で作る')
   assert.notEqual(courseKey(await resolveContext({...base,localCourseUUID:'not-a-uuid'},store,'owner-1')),courseKey(withApp),'形が不正な識別子は、使わない')
 })
+test('2回目からは、新しい分だけを取りに行く(取りこぼし防止に、少し戻した時刻から)',async()=>{
+  const store=new AIStore(),afters:(number|undefined)[]=[]
+  const ctx={...context(),localCourseUUID:'22222222-2222-4222-8222-222222222222',localCourseId:'cursor-course'}
+  const backend={demo:true,async saveMessages(){},async listMessages(_c:CourseContext,_s:AbortSignal,after?:number){afters.push(after);return after===undefined?[{id:'r1',role:'user',kind:'text',text:'一つめ',imageCount:0,dayID:DAY,createdAt:1_790_000_500_000} as RemoteMessage]:[]}} as unknown as AIBackend
+  await syncConversation(backend,store,uid,ctx,new AbortController().signal)
+  await syncConversation(backend,store,uid,ctx,new AbortController().signal)
+  assert.deepEqual(afters,[undefined,1_790_000_500_000-120_000])
+})

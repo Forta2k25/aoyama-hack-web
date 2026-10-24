@@ -21,9 +21,9 @@ export class FirebaseAIBackend implements AIBackend {
   async saveMessages(context:CourseContext,rows:SyncedMessage[],signal:AbortSignal){
     for(let i=0;i<rows.length;i+=50)await this.call('aiSaveMessages',{context,messages:rows.slice(i,i+50)},signal)
   }
-  async listMessages(context:CourseContext,signal:AbortSignal){
-    const items:RemoteMessage[]=[];let after:number|null|undefined;const seen=new Set<number>()
-    do{const page=await this.call<{items:RemoteMessage[];nextCursor:number|null}>('aiListMessages',{context,...(after!==undefined&&after!==null?{after}:{})},signal)
+  async listMessages(context:CourseContext,signal:AbortSignal,since?:number){
+    const items:RemoteMessage[]=[];let after:number|null|undefined=since;const seen=new Set<number>()
+    do{const page:{items:RemoteMessage[];nextCursor:number|null}=await this.call<{items:RemoteMessage[];nextCursor:number|null}>('aiListMessages',{context,...(after!==undefined&&after!==null?{after}:{})},signal)
       items.push(...page.items);after=page.nextCursor;if(after!==null&&after!==undefined){if(seen.has(after)||seen.size>=50)break;seen.add(after)}}while(after!==null&&after!==undefined)
     return items
   }

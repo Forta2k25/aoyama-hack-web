@@ -49,7 +49,8 @@ export interface AIBackend {
   chat(request: ChatRequest, signal: AbortSignal, delta: (text: string) => void, progress?: (p:ChatProgress)=>void): Promise<ChatReply>
   /** 会話の履歴(文章だけ)を、アプリとWebで同期する。対応していない接続(デモなど)では省略できる */
   saveMessages?(context: CourseContext, rows: SyncedMessage[], signal: AbortSignal): Promise<void>
-  listMessages?(context: CourseContext, signal: AbortSignal): Promise<RemoteMessage[]>
+  /** after を渡すと、その時刻(ms)より新しい発言だけを返す */
+  listMessages?(context: CourseContext, signal: AbortSignal, after?: number): Promise<RemoteMessage[]>
 }
 export interface SyncedMessage { id: string; role: 'user' | 'assistant'; kind: 'text' | 'image' | 'audio' | 'pdf' | 'note'; text: string; imageCount?: number; createdAt: number }
 export interface RemoteMessage extends SyncedMessage { dayID: number; semester?: string; imageCount: number }

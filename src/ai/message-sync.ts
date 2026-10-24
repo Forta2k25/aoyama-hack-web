@@ -34,13 +34,18 @@ export function fromRemoteMessage(row: RemoteMessage, uid: string, context: Cour
  * 1回の同期: まだ送っていない自分の発言を送り、サーバーにあって、ここにない発言を取り込む。
  * 取り込んだ発言は、この端末の保存先にも入れる(別の授業回の分も含む)。戻り値は、新しく取り込んだ発言。
  */
+// 授業ごとに、取り込みずみの、いちばん新しい発言の時刻。2回目からは、そこから少し戻った所以降だけを取る(通信と読み取りを減らす)。
+const cursors = new Map<string, number>()
+const OVERLAP_MS = 120_000 // 別の端末の、少し遅れて届いた発言(時計のずれ)も、取りこぼさない
+
 export async function syncConversation(backend: AIBackend, store: AIStore, uid: string, context: CourseContext, signal: AbortSignal): Promise<Message[]> {
   if (!backend.saveMessages || !backend.listMessages) return []
   const key = courseKey(context)
   const local = await store.messages(uid, key)
   const unsent = local.filter(m => !m.synced).map(m => ({ message: m, row: toSyncedMessage(m) })).filter((x): x is { message: Message; row: SyncedMessage } => !!x.row)
   // 同期の途中で、ほかの端末が足した発言を、先に取り込む(送る前に、一覧を取る)。
-  const remote = await backend.listMessages(context, signal)
+  const cursorKey = uid + '|' + key, since = cursors.get(cursorKey)
+  const remote = await backend.listMessages(context, signal, since === undefined ? undefined : Math.max(since - OVERLAP_MS, 0))
   const known = new Set(local.map(m => m.id))
   const added: Message[] = []
   for (const row of remote) {
@@ -62,5 +67,7 @@ export async function syncConversation(backend: AIBackend, store: AIStore, uid: 
     if (toSend.length) await backend.saveMessages(context.dayID === day ? context : { ...context, dayID: day }, toSend.map(x => x.row), signal)
     for (const { message } of items) { message.synced = true; await store.putMessage(message) }
   }
+  const newest = Math.max(0, ...remote.map(r => r.createdAt), ...[...byDay.values()].flat().map(x => x.row.createdAt))
+  if (newest > 0) cursors.set(cursorKey, Math.max(cursors.get(cursorKey) ?? 0, newest))
   return added
 }

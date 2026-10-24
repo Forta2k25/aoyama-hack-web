@@ -63,6 +63,13 @@ export class AIController {
     }catch(e){if(!this.lifetime.signal.aborted)this.error=safeError(e)}
     finally{this.loading=false;this.notify();if(!this.lifetime.signal.aborted)this.schedule()}
     void this.syncMessages()
+    this.startMessagePolling()
+  }
+  /** チャットを開いている間、アプリなど別の端末の発言が届いていないかを、3秒ごとに確かめる(新しい分だけ取る)。画面が隠れている間は、止める。 */
+  private pollTimer?:ReturnType<typeof setInterval>
+  private startMessagePolling(){
+    if(this.pollTimer||!this.backend.listMessages||this.backend.demo)return
+    this.pollTimer=setInterval(()=>{if(this.lifetime.signal.aborted||this.sending||(typeof document!=='undefined'&&document.visibilityState==='hidden'))return;void this.syncMessages()},3000)
   }
   private applyStatus(row:LocalMaterial){
     const status=row.remote?.status
@@ -170,7 +177,7 @@ export class AIController {
     let message:Message|undefined
     try{
       if(mode==='reply'){
-        const user:Message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'user',text:text.trim(),sourceIds:requestSourceIds,state:'done',createdAt:now};await this.store.putMessage(user);this.messages.push(user);turns.push({role:'user',text:user.text})
+        const user:Message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'user',text:text.trim(),sourceIds:requestSourceIds,state:'done',createdAt:now};await this.store.putMessage(user);this.messages.push(user);turns.push({role:'user',text:user.text});void this.syncMessages()
       }
       reply.signal.throwIfAborted()
       message={id:crypto.randomUUID(),uid:this.uid,courseKey:this.key,sessionKey:this.threadKey,role:'assistant',text:'',sourceIds:requestSourceIds,state:'sending',createdAt:now+1}
@@ -215,5 +222,5 @@ export class AIController {
     finally{this.syncing=false}
   }
   stop(){this.reply?.abort()}
-  dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer);clearTimeout(this.streamTimer)}
+  dispose(){this.reply?.abort();this.lifetime.abort();clearTimeout(this.timer);clearTimeout(this.streamTimer);clearInterval(this.pollTimer);this.pollTimer=undefined}
 }
