@@ -312,3 +312,12 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-chat-screen--ask .ai-message-editor-buttons { display:flex;justify-content:flex-end;gap:8px;margin-top:10px }
 .ai-chat-screen--ask .ai-message-editor-buttons .ai-small-button { border-radius:999px;padding:6px 16px;font-size:13px;min-height:32px }
 .ai-chat-screen--ask .ai-message-editor-send { background:#0a6b48;color:#fff;border:0 }
+
+/* 開くときは、下から少しせり上がりながら、ふわっと出る。閉じるときは、すっと消える */
+@keyframes ask-chat-in { from { opacity:0;transform:translateY(24px) scale(.985) } to { opacity:1;transform:none } }
+@keyframes ask-chat-out { from { opacity:1;transform:none } to { opacity:0;transform:translateY(16px) scale(.99) } }
+@keyframes ask-chat-fade { from { opacity:0 } to { opacity:1 } }
+.ai-chat-screen--ask[open] { animation:ask-chat-in .32s cubic-bezier(.2,.8,.2,1) both }
+.ai-chat-screen--ask[open]::backdrop { animation:ask-chat-fade .25s ease-out both }
+.ai-chat-screen--ask.ai-chat-screen--closing { animation:ask-chat-out .18s ease-in both }
+@media (prefers-reduced-motion:reduce) { .ai-chat-screen--ask[open],.ai-chat-screen--ask[open]::backdrop,.ai-chat-screen--ask.ai-chat-screen--closing { animation:none } }
