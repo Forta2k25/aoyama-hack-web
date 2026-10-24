@@ -34,6 +34,11 @@ export interface Course {
   syllabusURL?: string
   colorKey?: string
   firestoreDocID?: string
+  academicYear?: number
+  semester?: string
+  meetingDay?: number
+  teachingTerm?: string
+  timetableRecord?: string
 }
 
 export interface TimetableSlot {
@@ -88,6 +93,10 @@ export async function fetchTimetable(uid: string): Promise<TimetableSlot[]> {
         syllabusURL: m['syllabusURL'] as string | undefined,
         colorKey: m['colorKey'] as string | undefined,
         firestoreDocID: m['firestoreDocID'] as string | undefined,
+        academicYear: Number(docId.match(/^assignedCourses\.(\d{4})_/)?.[1]) || undefined,
+        semester: docId.endsWith('_前期') ? 'spring' : 'fall',
+        meetingDay: parseInt(match[1],10),
+        timetableRecord: `${docId}:${key}`,
       },
     })
   }

@@ -1452,3 +1452,53 @@ body.modal-open { overflow: hidden; }
   .mypage-guest-toolbar .mypage-tabs-bar { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
   .mypage-guest-toolbar .mypage-signin-compact { grid-column: 2; grid-row: 1; }
 }
+
+/* Keep the timetable's intrinsic width inside its own scroller on phones.
+   Desktop layout and course/chat routing deliberately retain their existing styles. */
+@media (max-width: 799px) {
+  main.mypage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  main.mypage .content-page,
+  main.mypage #mypage-content,
+  main.mypage .mypage-layout,
+  main.mypage .tt-wrapper {
+    min-width: 0;
+    max-width: 100%;
+  }
+  main.mypage .content-page {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  main.mypage .mypage-tabs-bar {
+    max-width: 100%;
+  }
+  main.mypage .mypage-tab {
+    padding-inline: 12px;
+  }
+  main.mypage .tt-scroll {
+    max-width: 100%;
+    overscroll-behavior-x: contain;
+  }
+  main.mypage .tt-label-row::after {
+    content: '左右にスワイプして全曜日を表示';
+    display: block;
+    margin-top: 8px;
+    color: #6b8f82;
+    font-size: 0.7rem;
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 360px) {
+  body:has(main.mypage) .site-header {
+    gap: 8px;
+    padding-inline: 12px;
+  }
+  body:has(main.mypage) .site-header .brand {
+    font-size: 1.35rem;
+    white-space: nowrap;
+  }
+  body:has(main.mypage) .header-login-btn {
+    padding-inline: 10px;
+  }
+}

@@ -1,6 +1,11 @@
+import {loadCourseSyllabus} from '../ai/syllabus'
+import {lectureSchedule} from '../ai/calendar'
+import {makeContext} from '../ai/identity'
+import { webAIEnabled } from '../ai/access'
+import { CourseAI } from './CourseAI'
 import { type AuthUser } from '../auth'
 import { fetchTimetable, fetchCourseDetail, fetchFriends, termLabel, slotColor, dayName, type TimetableSlot, type Friend } from '../timetable'
-import { fetchAndParseSyllabus, type SyllabusContent, type EvalItem } from '../syllabus'
+import { type SyllabusContent, type EvalItem } from '../syllabus'
 import { syllabusSearchMarkup, initSyllabusSearch } from './SyllabusSearch'
 import { loadGuestSlots, setGuestCourse, removeGuestCourse } from '../guestTimetable'
 import { openGuestSlotPicker } from './GuestSlotPicker'
@@ -80,7 +85,7 @@ async function showFriendTimetable(panel: HTMLElement, friendUID: string, friend
       cell.addEventListener('click', () => {
         const raw = cell.getAttribute('data-course')
         if (!raw) return
-        try { openCourseModal(JSON.parse(decodeURIComponent(raw))) } catch { /* ignore */ }
+        try { openCourseModal(JSON.parse(decodeURIComponent(raw)), false) } catch { /* ignore */ }
       })
     })
   } catch {
@@ -312,14 +317,6 @@ function booksMarkup(label: string, books: SyllabusContent['textbooks']): string
   </div>`
 }
 
-function currentWeekNumber(): number {
-  // 4/1 を前期第1週の起点として計算
-  const now = new Date()
-  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1
-  const semesterStart = new Date(year, 3, 1)
-  const diff = Math.floor((now.getTime() - semesterStart.getTime()) / (7 * 24 * 60 * 60 * 1000))
-  return Math.max(1, Math.min(15, diff + 1))
-}
 
 function courseDetailBodyMarkup(
   course: import('../timetable').Course,
@@ -350,7 +347,7 @@ function courseDetailBodyMarkup(
     `
   }
 
-  const week = currentWeekNumber()
+  const week=lectureSchedule({...course,teachingTerm:detail?.term},makeContext(course,'')).meetings.find(x=>x.thisWeek)?.number??0
   return `
     <h2 class="course-modal-title">${course.title}</h2>
     ${syllabusLink}
@@ -366,85 +363,88 @@ function courseDetailBodyMarkup(
 }
 
 let _outsideClickHandler: ((e: MouseEvent) => void) | null = null
+// 「AIに質問する」バーでコマを選んだあと、その授業は、AIチャットのタブから開く
+let _askPicked = false
+const takeAskPick = () => { const picked = _askPicked; _askPicked = false; return picked }
 
-export function openCourseModal(course: import('../timetable').Course) {
-  const timetableActive = !document.getElementById('tab-panel-timetable')?.hasAttribute('hidden')
-  if (window.innerWidth >= 800 && timetableActive) {
-    const panel = document.getElementById('course-side-panel')
-    const body = document.getElementById('course-side-body')
-    if (!panel || !body) return
+let _courseRequest=0
+let _activeAI: CourseAI | undefined
+let _outsideTimer: ReturnType<typeof setTimeout> | undefined
 
-    body.innerHTML = courseDetailBodyMarkup(course, undefined, undefined, true)
-    panel.classList.add('is-open')
-
-    // パネルが画面内に収まるようスクロール
-    const layout = document.getElementById('mypage-layout')
-    if (layout) {
-      const top = layout.getBoundingClientRect().top + window.scrollY - 96
-      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+export function openCourseModal(course: import('../timetable').Course, allowAI=true, initialTab: 'syllabus' | 'ai'='syllabus') {
+  closeCourseModal()
+  const ticket=++_courseRequest
+  const timetableActive=!document.getElementById('tab-panel-timetable')?.hasAttribute('hidden')
+  const desktop=window.innerWidth>=800 && timetableActive
+  const panel=document.getElementById(desktop?'course-side-panel':'course-modal')
+  const body=document.getElementById(desktop?'course-side-body':'course-modal-body')
+  if(!panel||!body)return
+  let detail: import('../timetable').CourseDetail | undefined, syllabus: SyllabusContent | null | undefined
+  let activeTab: 'syllabus' | 'ai'='syllabus', aiHost: HTMLElement | undefined, mounted=false
+  const available=allowAI&&webAIEnabled()
+  const detailPromise=fetchCourseDetail(course)
+  // The display and every lecture chat share this course-bound request, including early AI-tab clicks.
+  const syllabusPromise=detailPromise.then(value=>{
+    if(ticket!==_courseRequest)return {status:'absent' as const}
+    detail=value;return loadCourseSyllabus(course.syllabusURL||value.syllabusURL)
+  },()=>ticket===_courseRequest?loadCourseSyllabus(course.syllabusURL):{status:'absent' as const})
+  const shell=document.createElement('div'),syllabusHost=document.createElement('div')
+  const tabs=document.createElement('div');tabs.className='course-detail-tabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','授業の詳細')
+  const buttons:HTMLButtonElement[]=[]
+  function selectTab(tab:'syllabus'|'ai'){
+    activeTab=tab;syllabusHost.hidden=tab!=='syllabus';if(aiHost)aiHost.hidden=tab!=='ai'
+    buttons.forEach((button,index)=>{const selected=(index===0)===(tab==='syllabus');button.setAttribute('aria-selected',String(selected));button.tabIndex=selected?0:-1})
+    panel!.classList.toggle('course-panel--ai',tab==='ai')
+    if(tab==='ai'&&aiHost&&!mounted){
+      mounted=true;aiHost.textContent='AIハックを準備しています…'
+      void (async()=>{
+        const resolvedDetail=await detailPromise.catch(()=>undefined)
+        const {getUser}=await import('../auth'),user=getUser()
+        if(ticket!==_courseRequest||!aiHost)return
+        if(!user){
+          aiHost.innerHTML='<p class="slot-picker-note">AIチャットを使うには、ログインしてください。アプリと同じGoogleアカウントで使えます。</p><button class="btn btn-primary mypage-signin-compact" type="button">ログインする</button>'
+          aiHost.querySelector('button')?.addEventListener('click',()=>{void import('../auth').then(({signInWithGoogle})=>signInWithGoogle()).then(()=>location.reload()).catch(()=>window.alert('ログインに失敗しました。もう一度お試しください。'))})
+          return
+        }
+        const {FirebaseAIBackend}=await import('../ai/backend')
+        if(ticket!==_courseRequest)return
+        const resolved={...course,teachingTerm:resolvedDetail?.term,syllabusURL:course.syllabusURL||resolvedDetail?.syllabusURL,semester:course.semester ?? (resolvedDetail?.term?.includes('前期')?'spring':resolvedDetail?.term?.includes('後期')?'fall':undefined)}
+        _activeAI=new CourseAI(aiHost,resolved,user.uid,new FirebaseAIBackend(user.uid),undefined,syllabusPromise);await _activeAI.mount()
+      })().catch(()=>{if(ticket===_courseRequest&&aiHost)aiHost.textContent='AIハックの準備に失敗しました。授業を開き直してください。'})
     }
-
-    // パネル外クリックで閉じる
-    if (_outsideClickHandler) document.removeEventListener('click', _outsideClickHandler)
-    _outsideClickHandler = (e: MouseEvent) => {
-      if (!(e.target as Element | null)?.closest?.('#course-side-panel')) closeCourseModal()
-    }
-    setTimeout(() => document.addEventListener('click', _outsideClickHandler!), 100)
-
-    fetchCourseDetail(course)
-      .then(async (detail) => {
-        if (!panel.classList.contains('is-open')) return
-        const syllabusURL = course.syllabusURL || detail.syllabusURL || ''
-        const syllabus = await fetchAndParseSyllabus(syllabusURL)
-        if (panel.classList.contains('is-open')) {
-          body.innerHTML = courseDetailBodyMarkup(course, detail, syllabus, false)
-        }
-      })
-      .catch(() => {
-        if (panel.classList.contains('is-open')) {
-          body.innerHTML = courseDetailBodyMarkup(course, undefined, null, false)
-        }
-      })
-  } else {
-    const modal = document.getElementById('course-modal') as HTMLElement | null
-    const body = document.getElementById('course-modal-body')
-    if (!modal || !body) return
-
-    body.innerHTML = courseDetailBodyMarkup(course, undefined, undefined, true)
-    const _savedScroll = window.scrollY
-    modal.hidden = false
-    document.body.classList.add('modal-open')
-    window.scrollTo({ top: _savedScroll, behavior: 'instant' as ScrollBehavior })
-    ;(modal.querySelector('.course-modal-close') as HTMLElement | null)?.focus({ preventScroll: true })
-
-    fetchCourseDetail(course)
-      .then(async (detail) => {
-        if (modal.hidden) return
-        const syllabusURL = course.syllabusURL || detail.syllabusURL || ''
-        const syllabus = await fetchAndParseSyllabus(syllabusURL)
-        if (!modal.hidden) {
-          body.innerHTML = courseDetailBodyMarkup(course, detail, syllabus, false)
-        }
-      })
-      .catch(() => {
-        if (!modal.hidden) {
-          body.innerHTML = courseDetailBodyMarkup(course, undefined, null, false)
-        }
-      })
   }
+  for(const [tab,title]of [['syllabus','シラバス'],['ai','AIチャット ✦']] as const){
+    if(tab==='ai'&&!available)continue
+    const button=document.createElement('button');button.type='button';button.textContent=title;button.setAttribute('role','tab');button.id=`course-${ticket}-tab-${tab}`;button.setAttribute('aria-controls',`course-${ticket}-panel-${tab}`)
+    button.addEventListener('click',()=>selectTab(tab));button.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();const next=activeTab==='syllabus'?'ai':'syllabus';if(available){selectTab(next);buttons[next==='ai'?1:0].focus()}}});buttons.push(button);tabs.append(button)
+  }
+  syllabusHost.id=`course-${ticket}-panel-syllabus`;if(available){syllabusHost.setAttribute('role','tabpanel');syllabusHost.setAttribute('aria-labelledby',`course-${ticket}-tab-syllabus`)}
+  if(available){aiHost=document.createElement('div');aiHost.id=`course-${ticket}-panel-ai`;aiHost.setAttribute('role','tabpanel');aiHost.setAttribute('aria-labelledby',`course-${ticket}-tab-ai`);aiHost.hidden=true}
+  if(available)shell.append(tabs);shell.append(syllabusHost);if(aiHost)shell.append(aiHost);body.replaceChildren(shell)
+  const updateSyllabus=(loading:boolean)=>{syllabusHost.innerHTML=courseDetailBodyMarkup(course,detail,syllabus,loading)}
+  updateSyllabus(true);selectTab(initialTab==='ai'&&available?'ai':'syllabus')
+  if(desktop){
+    panel.classList.add('is-open')
+    const layout=document.getElementById('mypage-layout');if(layout)window.scrollTo({top:Math.max(0,layout.getBoundingClientRect().top+window.scrollY-96),behavior:'smooth'})
+    // Keep the panel open while using the timetable, its scroll bars, a picker or an AI dialog.
+    _outsideClickHandler=(event:MouseEvent)=>{const inside=event.composedPath().some(node=>node instanceof HTMLElement&&node.matches('#course-side-panel,.tt-cell-filled,dialog'));if(!inside)closeCourseModal()}
+    _outsideTimer=setTimeout(()=>{if(ticket===_courseRequest&&_outsideClickHandler)document.addEventListener('click',_outsideClickHandler)},100)
+  }else{
+    panel.hidden=false;document.body.classList.add('modal-open');panel.querySelector<HTMLElement>('.course-modal-close')?.focus({preventScroll:true})
+  }
+  void syllabusPromise.then(reference=>{
+    if(ticket!==_courseRequest)return
+    syllabus=reference.content??null;updateSyllabus(false)
+  })
 }
 
 export function closeCourseModal() {
-  const modal = document.getElementById('course-modal') as HTMLElement | null
-  if (modal) {
-    modal.hidden = true
-    document.body.classList.remove('modal-open')
-  }
-  document.getElementById('course-side-panel')?.classList.remove('is-open')
-  if (_outsideClickHandler) {
-    document.removeEventListener('click', _outsideClickHandler)
-    _outsideClickHandler = null
-  }
+  _courseRequest++;_activeAI?.dispose();_activeAI=undefined;clearTimeout(_outsideTimer)
+  const modal=document.getElementById('course-modal');if(modal){modal.hidden=true;modal.classList.remove('course-panel--ai');document.body.classList.remove('modal-open')}
+  const side=document.getElementById('course-side-panel');side?.classList.remove('is-open','course-panel--ai')
+  document.getElementById('course-side-body')?.replaceChildren()
+  document.getElementById('course-modal-body')?.replaceChildren()
+  if(_outsideClickHandler){document.removeEventListener('click',_outsideClickHandler);_outsideClickHandler=null}
 }
 
 function googleMark() {
@@ -590,7 +590,10 @@ export function mypageMarkup() {
   `
 }
 
+let _pageRequest=0
 export async function renderMyPage(user: AuthUser) {
+  const pageRequest=++_pageRequest
+  closeCourseModal()
   const container = document.getElementById('mypage-content')
   if (!container) return
 
@@ -619,7 +622,7 @@ export async function renderMyPage(user: AuthUser) {
       document.getElementById('tab-timetable')?.classList.toggle('mypage-tab--active', tab === 'timetable')
       document.getElementById('tab-syllabus')?.classList.toggle('mypage-tab--active', tab === 'syllabus')
     }
-    mountAskBar(() => undefined)   // コマを選んだら、そのまま授業の詳細(下の click)が開く
+    mountAskBar(() => { _askPicked = true })   // コマを選んだら、その授業をAIチャットのタブで開く
     document.getElementById('tab-timetable')?.addEventListener('click', () => showGuestTab('timetable'))
     document.getElementById('tab-syllabus')?.addEventListener('click', () => showGuestTab('syllabus'))
     if (location.hash === '#syllabus') showGuestTab('syllabus')
@@ -644,7 +647,7 @@ export async function renderMyPage(user: AuthUser) {
     container.querySelectorAll<HTMLElement>('.tt-cell-filled').forEach((cell) => {
       const open = () => {
         const raw = cell.getAttribute('data-course')
-        if (raw) { try { openCourseModal(JSON.parse(decodeURIComponent(raw))) } catch { /* ignore */ } }
+        if (raw) { try { openCourseModal(JSON.parse(decodeURIComponent(raw)), true, takeAskPick() ? 'ai' : 'syllabus') } catch { /* ignore */ } }
       }
       cell.addEventListener('click', open)
     })
@@ -657,6 +660,7 @@ export async function renderMyPage(user: AuthUser) {
 
   try {
     const slots = await fetchTimetable(user.uid)
+    if(pageRequest!==_pageRequest)return
     const label = termLabel()
     const tabsBar = `
       <div class="mypage-tabs-bar">
@@ -706,7 +710,7 @@ export async function renderMyPage(user: AuthUser) {
           const raw = cell.getAttribute('data-course')
           if (!raw) return
           try {
-            openCourseModal(JSON.parse(decodeURIComponent(raw)))
+            openCourseModal(JSON.parse(decodeURIComponent(raw)), true, takeAskPick() ? 'ai' : 'syllabus')
           } catch { /* ignore */ }
         }
         cell.addEventListener('click', handler)
@@ -718,11 +722,12 @@ export async function renderMyPage(user: AuthUser) {
       document.getElementById('course-modal')?.addEventListener('click', (e) => {
         if (e.target === e.currentTarget) closeCourseModal()
       })
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCourseModal() })
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape'&&!document.querySelector('dialog[open]')) closeCourseModal() })
     }
+    if(webAIEnabled())void import('../ai/connection').then(({mountConnectionCheck})=>{if(pageRequest===_pageRequest)void mountConnectionCheck(container,user.uid)})
     // 現在時刻ライン（時間割タブのみ）
     startNowLine()
-    mountAskBar(() => undefined)
+    mountAskBar(() => { _askPicked = true })
 
     // タブ切り替え
     let _friendsLoaded = false
