@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@netlify/functions": "^5.2.2",
+    "@vercel/functions": "3.10.3",
     "dompurify": "3.4.17",
     "firebase": "^12.13.0",
     "heic-to": "1.6.6",
