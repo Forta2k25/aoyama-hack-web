@@ -19,15 +19,15 @@ function same(a: string, b: string): boolean {
 
 export default function middleware(request: Request) {
   const password = process.env.SITE_PASSWORD
-  if (!password) return next()
-  if (open(new URL(request.url).pathname)) return next()
+  if (!password) return next({ headers: { 'x-site-auth': 'off' } })
+  if (open(new URL(request.url).pathname)) return next({ headers: { 'x-site-auth': 'open' } })
   const header = request.headers.get('authorization') ?? ''
   if (header.startsWith('Basic ')) {
     try {
       const decoded = new TextDecoder().decode(Uint8Array.from(atob(header.slice(6)), c => c.charCodeAt(0)))
       const colon = decoded.indexOf(':')
       const user = process.env.SITE_USER || 'hack'
-      if (colon >= 0 && same(decoded.slice(0, colon), user) && same(decoded.slice(colon + 1), password)) return next()
+      if (colon >= 0 && same(decoded.slice(0, colon), user) && same(decoded.slice(colon + 1), password)) return next({ headers: { 'x-site-auth': 'ok' } })
     } catch { /* 壊れた認証ヘッダーは、不一致として扱う */ }
   }
   return new Response('パスワードが必要です', {
