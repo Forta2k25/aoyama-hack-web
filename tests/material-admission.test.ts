@@ -34,7 +34,7 @@ test('durable preparation blocks before the row exists and releases on local sto
 })
 
 test('newly attached ready source replaces one of eight old selections and is explicitly required',async()=>{
- const old=Array.from({length:8},(_,i)=>source('old-'+i,'ready')),fresh=source('fresh-image','extracting'),backend=new Backend([...old,fresh].map(source=>({source})));backend.live.set(fresh.sourceId,fresh)
+ const old=Array.from({length:8},(_,i)=>source('old-'+i,'ready')),fresh={...source('fresh-image','extracting'),sourceType:'image' as const},backend=new Backend([...old,fresh].map(source=>({source})));backend.live.set(fresh.sourceId,fresh)
  const c=new AIController(crypto.randomUUID(),context,backend,new AIStore(),()=>{});await c.init()
  try{const row=c.materials.find(x=>x.remote?.sourceId===fresh.sourceId)!;assert.equal(c.selected.size,8);fresh.status='ready';await (c as any).poll()
  assert.equal(await c.send('この新しい問題を解いて','reply',{kind:'image',count:1,ids:[row.id]}),true)
@@ -51,7 +51,7 @@ test('an attached source that fails while waiting never calls chat with old mate
 
 test('web request keeps the new image in the shared backend context and verifies its acknowledgement',{skip:!process.env.AI_CHAT_MODULE},async()=>{
  const chat=createRequire(import.meta.url)(process.env.AI_CHAT_MODULE!)
- const old=source('old-text','ready'),fresh=source('new-image','ready'),backend=new Backend([{source:old},{source:fresh}])
+ const old=source('old-text','ready'),fresh={...source('new-image','ready'),sourceType:'image' as const},backend=new Backend([{source:old},{source:fresh}])
  let delivered=''
  backend.chat=async(request:ChatRequest)=>{
   const input=chat.validateChat(request),selected=chat.chooseContext([
@@ -63,4 +63,9 @@ test('web request keeps the new image in the shared backend context and verifies
  }
  const c=new AIController(crypto.randomUUID(),context,backend,new AIStore(),()=>{});await c.init()
  try{const row=c.materials.find(x=>x.remote?.sourceId===fresh.sourceId)!;assert.equal(await c.send('この新しい differentiation の問題について回答して','reply',{kind:'image',count:1,ids:[row.id]}),true);assert.match(delivered,/hemisphere/)}finally{c.dispose()}
+})
+
+test('a newly attached PDF retains the existing excerpt route for long documents',async()=>{
+ const fresh=source('large-pdf','ready'),backend=new Backend([{source:fresh}]);const c=new AIController(crypto.randomUUID(),context,backend,new AIStore(),()=>{});await c.init()
+ try{const row=c.materials.find(x=>x.remote?.sourceId===fresh.sourceId)!;assert.equal(await c.send('資料を要約','reply',{kind:'pdf',count:1,ids:[row.id]}),true);assert.deepEqual(backend.calls[0].sourceIds,['large-pdf']);assert.equal(backend.calls[0].requiredSourceIds,undefined);assert.equal(backend.calls[0].materialExpected,true)}finally{c.dispose()}
 })

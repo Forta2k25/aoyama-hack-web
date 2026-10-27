@@ -183,6 +183,7 @@ export class AIController {
     const pick=()=>this.materials.filter(x=>this.selected.has(x.id)&&x.remote&&['ready','partial_ready'].includes(x.remote.status)).map(x=>x.remote!.sourceId)
     const attachmentIds=[...new Set(attachment?.ids??[])]
     if(attachmentIds.length>8)throw Error('WEB_一度に添付できる資料は8件までです。')
+    let requiredSourceIds:string[]=[]
     let sourceIds=pick()
     const project=mode==='reply'&&this.referenceMode!=='lecture'
     if(project&&attachmentIds.length)throw Error('WEB_新しい添付を使うには「今回の授業回」を選んで送信してください。')
@@ -218,12 +219,14 @@ export class AIController {
         while(this.selected.size+attachmentIds.length>8)this.selected.delete(this.selected.values().next().value!)
         for(const id of attachmentIds)this.selected.add(id)
         const required=attached.map(row=>row!.remote!.sourceId)
+        // Images fit in the strict full-text contract; long PDFs keep the existing excerpt routing.
+        requiredSourceIds=[...new Set(attached.filter(row=>row!.type==='image').map(row=>row!.remote!.sourceId))]
         requestSourceIds=[...required,...pick().filter(id=>!required.includes(id))].slice(0,8)
         message.sourceIds=requestSourceIds
         const sent=this.messages.find(x=>x.role==='user'&&x.createdAt===now);if(sent){sent.sourceIds=requestSourceIds;await this.store.putMessage(sent)}
       }
       const recent=turns.slice(-12);if(recent[0]?.role==='assistant')recent.shift()
-      const request={...(referenceScope?{referenceScope}:{}),...(this.syllabus?{syllabus:this.syllabus}:{}),...(attachmentIds.length?{materialExpected:true,requiredSourceIds:requestSourceIds.slice(0,attachmentIds.length)}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds:requestSourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
+      const request={...(referenceScope?{referenceScope}:{}),...(this.syllabus?{syllabus:this.syllabus}:{}),...(attachmentIds.length?{materialExpected:true}:{}),...(requiredSourceIds.length?{requiredSourceIds}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds:requestSourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
       message.resumeRequest=request
       const response=await this.backend.chat(request,reply.signal,delta=>{message!.text+=delta;this.notifyStream()},progress=>{message!.progress=progress;this.notify()})
       reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.references=response.references;if(response.references)message.sourceIds=response.references.sources.map(s=>s.sourceId);message.state='done';message.canResume=false;message.progress=undefined;message.error=undefined;return true
