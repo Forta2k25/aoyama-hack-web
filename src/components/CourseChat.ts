@@ -43,19 +43,21 @@ export class CourseChat {
     title.id=`ai-materials-title-${crypto.randomUUID()}`;header.append(title,close)
     this.materialsPanel.id=`ai-materials-${crypto.randomUUID()}`;this.materialsPanel.setAttribute('aria-labelledby',title.id)
     this.materialsButton.setAttribute('aria-controls',this.materialsPanel.id);this.materialsButton.setAttribute('aria-haspopup','dialog');this.materialsButton.setAttribute('aria-expanded','false')
-    this.materialsPanel.addEventListener('close',()=>{this.materialsButton.setAttribute('aria-expanded','false');if(!this.disposed)this.materialsButton.focus()})
+    this.materialsPanel.addEventListener('close',()=>{this.materialsButton.setAttribute('aria-expanded','false');if(!this.disposed)(this.root.closest('.ai-chat-screen--ask')?this.root.querySelector<HTMLElement>('.ai-add-toggle'):this.materialsButton)?.focus()})
     const content=el('div','ai-materials-panel-content');content.append(el('p','ai-materials-help','各授業回で送った資料をまとめて保存します。通常は今回の資料だけを参照し、試験対策・レポートでは参照範囲を広げます。解析完了の資料のみを使用します。'),this.materialsEmpty,this.materials)
     const summary=el('summary','','読み取り本文・ページ別処理情報');this.evidence.append(summary,this.evidenceBody);this.evidence.hidden=true;content.append(this.evidence);this.materialsPanel.append(header,content);this.root.append(this.materialsPanel)
     if(this.toolbar)this.toolbar.append(this.materialsButton)
     else {const tools=el('div','ai-materials-toolbar');tools.append(this.materialsButton);this.root.prepend(tools)}
     this.thread.setAttribute('role','log');this.thread.setAttribute('aria-label','AIとの会話');this.thread.setAttribute('aria-live','polite');this.thread.setAttribute('aria-relevant','additions');this.root.append(this.thread)
-    this.mountScopeControls();this.thread.before(this.scopePanel)
+    this.mountScopeControls();if(this.root.closest('.ai-chat-screen--ask'))content.prepend(this.scopePanel);else this.thread.before(this.scopePanel)
     const welcome=el('div','ai-welcome');welcome.append(el('div','ai-mark','✦'),el('h3','','この授業の、学びの相棒。'),el('p','','資料を追加して、要約や質問から始めましょう。'),el('small','','授業ごとに会話と資料を保存します。'))
     this.thread.append(welcome)
     for(const text of ['要点をまとめて','小テストを作って','リアクションペーパーを一緒に考えて'])this.suggestions.append(button(text,()=>{this.setComposerCollapsed(false);this.textarea.value=text;this.textarea.focus()},'ai-suggestion'))
     for(const [label,text]of [['試験対策（授業全体）','この授業のこれまでの資料をもとに、試験対策の重要事項と練習問題を作って。参照できない範囲も教えて。'],['期末レポートを計画','この授業のこれまでの資料を参照し、期末レポートの論点と構成を一緒に考えて。根拠の資料・授業日・ページも示して。']]){const action=button(label,()=>void this.perform(async()=>{this.controller!.setReferenceScope('course');this.setComposerCollapsed(false);this.textarea.value=text;this.textarea.focus()}),'ai-suggestion');this.projectActions.push(action);this.suggestions.append(action)}
     this.root.append(this.suggestions)
     this.textarea.placeholder='この授業の資料について質問する…';this.textarea.maxLength=2000;this.textarea.rows=2;this.textarea.setAttribute('aria-label','AIへのメッセージ')
+    const fitComposer=()=>{if(!this.root.closest('.ai-chat-screen--ask'))return;this.textarea.style.height='24px';if(this.textarea.value)this.textarea.style.height=`${Math.min(120,Math.max(24,this.textarea.scrollHeight))}px`}
+    this.textarea.addEventListener('input',fitComposer)
     this.textarea.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();this.composer.requestSubmit()}})
     const tools=el('div','ai-composer-tools'),menu=el('details','ai-add-menu'),menuTitle=el('summary','ai-add-toggle','＋ 資料を追加'),menuBody=el('div','ai-menu-items');menu.append(menuTitle,menuBody)
     menuTitle.addEventListener('click',e=>{e.preventDefault();if(menu.open)this.closeMenu(menu);else this.openMenu(menu)})
@@ -64,6 +66,7 @@ export class CourseChat {
     menu.addEventListener('keydown',e=>{if((e as KeyboardEvent).key==='Escape'&&menu.open){e.stopPropagation();this.closeMenu(menu);menuTitle.focus()}})
     const fileInput=el('input');fileInput.type='file';fileInput.multiple=true;fileInput.accept=`${imageFileAccept},application/pdf,audio/mp4,.m4a,.docx,${docxMime}`;fileInput.hidden=true
     menuBody.append(button('写真・PDF・Word・音声ファイル',()=>fileInput.click(),'ai-menu-item'),button('資料メモを書く',()=>this.showNote(),'ai-menu-item'),this.recordButton)
+    if(this.root.closest('.ai-chat-screen--ask'))menuBody.append(button('保存済みの資料・参照範囲',()=>{this.closeMenu(menu);this.openMaterials()},'ai-menu-item'))
     this.recordButton.type='button';this.recordButton.addEventListener('click',()=>void this.toggleRecording())
     this.stop.type='button';this.stop.hidden=true;this.stop.addEventListener('click',()=>this.controller?.stop());this.send.type='submit';this.send.disabled=true
     this.attachments.setAttribute('role','list');this.attachments.setAttribute('aria-label','追加した資料とアップロード状況');this.attachments.hidden=true
@@ -81,11 +84,11 @@ export class CourseChat {
       const kind=rows[0]?.type??'note',ids=rows.filter(row=>this.controller!.referenceMode==='lecture'||this.recentAttachments.has(row.id)).map(row=>row.id),attachment=shown.length?{kind,count:rows.filter(r=>r.type===kind).length||1,ids}:undefined
       // 送った瞬間に、入力欄から資料を片づける(返信を待たない)。失敗したら戻す。
       for(const [id] of shown)this.dismissedAttachments.add(id)
-      this.textarea.value='';this.renderAttachments()
+      this.textarea.value='';fitComposer();this.renderAttachments()
       void this.perform(async()=>{
         let sent=false
         try{sent=await this.controller!.send(text,'reply',attachment)}
-        finally{if(!sent&&!this.disposed){for(const [id] of shown)this.dismissedAttachments.delete(id);if(!this.textarea.value)this.textarea.value=text;this.renderAttachments()}}
+        finally{if(!sent&&!this.disposed){for(const [id] of shown)this.dismissedAttachments.delete(id);if(!this.textarea.value)this.textarea.value=text;fitComposer();this.renderAttachments()}}
       })
     })
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);this.closeMenu(menu)})

@@ -42,3 +42,12 @@ test('lecture chat opens as a full-screen modal and Escape/close returns focus t
  screen.close();await flush(()=>!!root.querySelector('.ai-lecture-card'));assert(!document.querySelector('dialog'));assert(!document.body.classList.contains('ai-chat-open'));assert.equal(document.activeElement,root.querySelector('.ai-lecture-card'))
  root.querySelector<HTMLButtonElement>('.ai-lecture-card')!.click();await flush(()=>!!document.querySelector('dialog[open]'));view.dispose();assert(!document.querySelector('dialog'));assert(!document.body.classList.contains('ai-chat-open'))
 })
+
+test('simple lecture chat keeps saved materials and reference controls accessible from the add menu',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:new Date('2026-10-15T12:00:00Z')})
+ const root=document.getElementById('root')!,course={id:'#####',title:'シンプル画面の授業',teacher:'架空教員',room:'',academicYear:2026,semester:'fall',meetingDay:2,campus:'青山',timetableRecord:'assignedCourses.2026_後期:cells.d2p1'},view=new CourseAI(root,course,crypto.randomUUID(),new Backend())
+ try{await view.mount();root.querySelector<HTMLButtonElement>('.ai-lecture-card')!.click();await flush(()=>!!document.querySelector('.ai-chat-screen--ask .ai-send:not([disabled])'))
+ const screen=document.querySelector<HTMLDialogElement>('.ai-chat-screen--ask')!,menu=screen.querySelector<HTMLDetailsElement>('.ai-add-menu')!,entry=[...menu.querySelectorAll<HTMLButtonElement>('button')].find(b=>b.textContent==='保存済みの資料・参照範囲')!
+ assert(entry);menu.open=true;entry.click();const library=screen.querySelector<HTMLDialogElement>('.ai-materials-dialog')!;assert(library.open);assert(library.querySelector('[aria-label="資料の参照範囲"]'));library.close();assert.equal(document.activeElement,menu.querySelector('summary'))
+ }finally{view.dispose()}
+})

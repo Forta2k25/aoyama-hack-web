@@ -86,7 +86,7 @@ export class CourseAI {
   if(styled){
    // ChatGPTのように、「＋」・入力欄・送信を1行に並べる。文章が増えたら、入力欄が縦に伸びる。
    const input=host.querySelector<HTMLTextAreaElement>('.ai-composer-input')
-   if(input){input.rows=1;const fit=()=>{input.style.height='auto';input.style.height=Math.min(input.scrollHeight,160)+'px'};input.addEventListener('input',fit);fit()}
+   if(input)input.rows=1
   }
  }
  private settingsForm(){

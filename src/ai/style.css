@@ -232,6 +232,9 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 .ai-chat-screen--ask .ai-chat-screen-actions { width:38px }
 .ai-chat-screen--ask .ai-session-chat { max-width:760px;padding:0 20px max(18px,env(safe-area-inset-bottom)) }
 .ai-chat-screen--ask .ai-notice,.ai-chat-screen--ask .ai-course-identity,.ai-chat-screen--ask .ai-reference-scope,.ai-chat-screen--ask .ai-suggestions,.ai-chat-screen--ask .ai-composer-caption,.ai-chat-screen--ask .ai-composer-header,.ai-chat-screen--ask .ai-materials-toolbar,.ai-chat-screen--ask .ai-materials-toggle,.ai-chat-screen--ask .ai-welcome small,.ai-chat-screen--ask .ai-welcome .ai-mark,.ai-chat-screen--ask .ai-welcome p { display:none!important }
+.ai-chat-screen--ask .ai-materials-dialog .ai-reference-scope { display:block!important }
+.ai-chat-screen--ask .ai-status:empty { display:none }
+.ai-chat-screen--ask .ai-status:not(:empty) { display:block!important }
 .ai-chat-screen--ask .ai-welcome h3 { margin:0;font-size:clamp(24px,4vw,32px);font-weight:500;color:#1b1f1d;text-align:center }
 .ai-chat-screen--ask .ai-thread { padding:6px 0 18px }
 .ai-chat-screen--ask .ai-thread:has(.ai-welcome:not([hidden])) { flex:0 0 auto;min-height:0;margin-top:auto;padding:0 0 22px }
@@ -261,6 +264,7 @@ html:has(body.ai-chat-open),body.ai-chat-open { overflow:hidden }
 
 /* 文字の上下を、「＋」と送信の真ん中にそろえる(余白を作らず、1行ぶんの高さにする) */
 .ai-chat-screen--ask .ai-composer-input { box-sizing:border-box;padding:0!important;min-height:24px!important;height:24px;line-height:24px!important;display:block }
+.ai-chat-screen--ask .ai-composer-input:placeholder-shown { overflow:hidden }
 
 /* 「＋」と「↑」は、文字ではなく図形で描く(文字だと、字の形で、上下に少しずれて見えるため) */
 .ai-chat-screen--ask .ai-add-toggle::before { content:'';width:16px;height:16px;background:linear-gradient(#3a3f3d,#3a3f3d) center/16px 2px no-repeat,linear-gradient(#3a3f3d,#3a3f3d) center/2px 16px no-repeat;font-size:0 }
