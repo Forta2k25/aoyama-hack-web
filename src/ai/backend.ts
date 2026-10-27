@@ -1,4 +1,5 @@
 import {receiveChat} from './chat-stream'
+import {confirmRequiredSources} from './chat-source-ack'
 import { validateUpload } from './upload'
 import { getFunctions, httpsCallable } from 'firebase/functions'
 import { auth } from '../firebase'
@@ -75,7 +76,8 @@ export class FirebaseAIBackend implements AIBackend {
     if(request.referenceScope&&this.projectContextProtocol!=='course-project-v1')throw Error('WEB_授業横断の参照には対応backendの更新が必要です。')
     const callable=httpsCallable<ChatRequest,ChatReply,{delta?:string;protocol?:string;status?:string}>(this.functions,'aiChat',{timeout:120000})
     // A mixed/old backend must not silently answer without the project materials. Verify the final acknowledgement before showing project text.
-    const result=await receiveChat(request,signal,text=>{this.check(signal);if(!request.referenceScope)onDelta(text)},progress=>{this.check(signal);onProgress(progress)},async(data,active)=>{this.check(active);const result=await callable.stream(data,{signal:active});this.check(active);return result},{log:record=>console.info(record)})
+    const result=await receiveChat(request,signal,text=>{this.check(signal);if(!request.referenceScope&&!request.requiredSourceIds?.length)onDelta(text)},progress=>{this.check(signal);onProgress(progress)},async(data,active)=>{this.check(active);const result=await callable.stream(data,{signal:active});this.check(active);return result},{log:record=>console.info(record)})
+    if(request.requiredSourceIds?.length){confirmRequiredSources(request,result);onDelta(result.text)}
     if(request.referenceScope){const ref=result.references;if(ref?.protocol!=='course-project-v1'||ref.courseOfferingId!==this.resolvedCourseOfferingId||ref.scope.mode!==request.referenceScope.mode||JSON.stringify(ref.scope.dayIDs??[])!==JSON.stringify(request.referenceScope.dayIDs??[])||!ref.sources.length||ref.sources.some(s=>request.referenceScope!.mode==='lectures'&&!request.referenceScope!.dayIDs!.includes(s.dayID!)))throw Error('WEB_授業横断の参照をbackendが確認できませんでした。更新完了後に開き直してください。');onDelta(result.text)}
     this.check(signal);return result
   }

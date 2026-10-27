@@ -67,6 +67,23 @@ test('a restored awaiting-upload receipt never displays an upload-success badge 
  try{const tray=root.querySelector<HTMLElement>('.ai-composer-attachments')!;assert.match(tray.textContent!,/アップロード未完了/);assert(!tray.textContent!.includes('アップロード済み'));assert(!tray.textContent!.includes('解析完了'));assert(!tray.querySelector<HTMLButtonElement>('.ai-attachment-retry')!.hidden)}finally{view.dispose()}
 })
 
+test('dragged file items are accepted when files is empty; an empty drop reports an error',async()=>{
+ const root=document.getElementById('root')!,view=new CourseChat(root,course,crypto.randomUUID(),new DemoAIBackend(),new AIStore(),context);await view.mount();const c=(view as any).controller
+ const incoming=new File(['synthetic screenshot'],'screen.png',{type:'image/png'}),received:File[]=[]
+ const original=c.stageFile.bind(c);c.stageFile=async(file:File)=>{received.push(file);return original(file)}
+ try{const drop=new dom.window.Event('drop',{bubbles:true,cancelable:true});Object.defineProperty(drop,'dataTransfer',{value:{types:['Files'],files:[],items:[{kind:'file',getAsFile:()=>incoming}]}});root.dispatchEvent(drop);await until(()=>received.length===1);assert.equal(received[0],incoming)
+ const empty=new dom.window.Event('drop',{bubbles:true,cancelable:true});Object.defineProperty(empty,'dataTransfer',{value:{types:['Files'],files:[],items:[]}});root.dispatchEvent(empty);assert.match(root.textContent!,/画像を受け取れません/)
+ }finally{view.dispose()}
+})
+
+test('an early send rejection restores both the text and the attachment card',async()=>{
+ const root=document.getElementById('root')!,view=new CourseChat(root,course,crypto.randomUUID(),new DemoAIBackend(),new AIStore(),context);await view.mount();const c=(view as any).controller
+ try{const row=await c.stageNote('synthetic material');await until(()=>!!row.remote&&c.requests.size===0);row.state='ready';row.remote.status='ready';(view as any).recentAttachments.add(row.id);(view as any).render()
+ c.send=async()=>{throw Error('WEB_送信前の確認に失敗しました。')};const input=root.querySelector<HTMLTextAreaElement>('.ai-composer-input')!;input.value='質問を保持';root.querySelector('form')!.requestSubmit()
+ await until(()=>root.textContent!.includes('送信前の確認に失敗'));assert.equal(input.value,'質問を保持');assert(root.querySelector('.ai-attachment-card'))
+ }finally{view.dispose()}
+})
+
 test('submissions are blocked only during upload; analysis continues in the background and the answer waits for ready',async()=>{
  const root=document.getElementById('root')!,backend=new Backend(),view=new CourseChat(root,course,crypto.randomUUID(),backend,new AIStore(),context);await view.mount();const c=(view as any).controller
  let chats=0;backend.chat=async()=>{chats++;return {text:'完了資料を使った架空回答'}}

@@ -73,29 +73,31 @@ export class CourseChat {
     tools.append(menu,this.send);this.composerBody.append(this.attachments,this.textarea,tools,fileInput);this.composer.append(composerHeader,this.sendWait,this.composerBody)
     this.composer.addEventListener('submit',e=>{
       e.preventDefault();if(this.send.disabled||this.composerCollapsed)return
+      if([...this.attachmentCards.values()].some(card=>card.isConnected&&['failed','awaiting_upload'].includes(card.dataset.state??''))){this.status.textContent='添付資料の送信または解析に失敗しました。再送するか、回答から外してください。';return}
       // 入力欄に出ているカード(送れる状態のもの)。文章がなくても、これがあれば送れる。
       const shown=[...this.attachmentCards.entries()].filter(([,card])=>card.isConnected&&['ready','processing'].includes(card.dataset.state??'')),text=this.textarea.value
       if(!text.trim()&&!shown.length)return
       const rows=shown.map(([id])=>this.controller!.materials.find(m=>m.id===id)).filter((row):row is NonNullable<typeof row>=>!!row)
-      const kind=rows[0]?.type??'note',attachment=shown.length?{kind,count:rows.filter(r=>r.type===kind).length||1}:undefined
+      const kind=rows[0]?.type??'note',ids=rows.filter(row=>this.controller!.referenceMode==='lecture'||this.recentAttachments.has(row.id)).map(row=>row.id),attachment=shown.length?{kind,count:rows.filter(r=>r.type===kind).length||1,ids}:undefined
       // 送った瞬間に、入力欄から資料を片づける(返信を待たない)。失敗したら戻す。
       for(const [id] of shown)this.dismissedAttachments.add(id)
       this.textarea.value='';this.renderAttachments()
       void this.perform(async()=>{
-        const sent=await this.controller!.send(text,'reply',attachment)
-        if(!sent&&!this.disposed){for(const [id] of shown)this.dismissedAttachments.delete(id);if(!this.textarea.value)this.textarea.value=text;this.renderAttachments()}
+        let sent=false
+        try{sent=await this.controller!.send(text,'reply',attachment)}
+        finally{if(!sent&&!this.disposed){for(const [id] of shown)this.dismissedAttachments.delete(id);if(!this.textarea.value)this.textarea.value=text;this.renderAttachments()}}
       })
     })
     fileInput.addEventListener('change',()=>{const files=[...fileInput.files??[]];fileInput.value='';void this.addFiles(files);this.closeMenu(menu)})
     const overlay=el('div','ai-drop-overlay');overlay.hidden=true;overlay.setAttribute('aria-hidden','true')
     overlay.append(el('div','ai-drop-icon'),el('strong','','何でも追加できます'),el('span','','ここにファイルをドロップすると、会話に追加されます'))
     const dropTarget:HTMLElement=this.root.closest('dialog')??this.root;let dragDepth=0
-    const hasFiles=(e:DragEvent)=>[...(e.dataTransfer?.types??[])].includes('Files')
+    const hasFiles=(e:DragEvent)=>[...(e.dataTransfer?.types??[])].includes('Files')||[...(e.dataTransfer?.items??[])].some(item=>item.kind==='file')
     const endDrag=()=>{dragDepth=0;overlay.hidden=true}
     dropTarget.addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth++;overlay.hidden=false})
     dropTarget.addEventListener('dragover',e=>{if(hasFiles(e))e.preventDefault()})
     dropTarget.addEventListener('dragleave',e=>{if(!hasFiles(e))return;dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)overlay.hidden=true})
-    dropTarget.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();endDrag();void this.addFiles([...e.dataTransfer?.files??[]])})
+    dropTarget.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();endDrag();const data=e.dataTransfer;const files=[...data?.files??[]];if(!files.length)files.push(...[...data?.items??[]].map(item=>item.kind==='file'?item.getAsFile():null).filter((file):file is File=>!!file));if(!files.length){this.status.textContent='画像を受け取れませんでした。保存済みのファイルを選んで追加してください。';return}void this.addFiles(files)})
     this.root.append(overlay)
     this.root.append(this.status,this.composer,this.caption)
     try{
@@ -276,7 +278,7 @@ export class CourseChat {
       if(detail.progress?.value===undefined)progress.removeAttribute('value');else progress.value=detail.progress.value
       card.querySelector<HTMLButtonElement>('.ai-attachment-retry')!.hidden=row.state!=='failed'&&!awaiting
       if(c.referenceMode!=='lecture'&&row.state==='ready')state.textContent+=c.scopedMaterials.some(m=>m.id===row.id)?' · 参照範囲内':' · 指定範囲外'
-      const dismiss=card.querySelector<HTMLButtonElement>('.ai-attachment-dismiss')!;dismiss.hidden=row.state!=='ready';dismiss.textContent=c.referenceMode==='lecture'&&c.selected.has(row.id)?'回答から外す':'表示を閉じる'
+      const dismiss=card.querySelector<HTMLButtonElement>('.ai-attachment-dismiss')!;dismiss.hidden=!['ready','failed'].includes(row.state)&&!awaiting;dismiss.textContent=c.referenceMode==='lecture'&&c.selected.has(row.id)||row.state==='failed'||awaiting?'回答から外す':'表示を閉じる'
     }
     const cards=rows.map(row=>this.attachmentCards.get(row.id)!)
     if(cards.length!==this.attachments.children.length||cards.some((card,i)=>this.attachments.children[i]!==card))this.attachments.replaceChildren(...cards)

@@ -173,7 +173,7 @@ export class AIController {
     await this.store.removeMaterial(row.id);this.materials=this.materials.filter(x=>x.id!==row.id);this.library=this.library.filter(x=>x.id!==row.id);this.selected.delete(row.id);this.notify()
   }
   async evidence(id:string,preview:boolean){const row=this.projectMaterials.find(x=>x.id===id);if(!row?.remote)throw Error('WEB_未送信の資料です。');return this.backend.evidence(row.remote.sourceId,preview,this.lifetime.signal)}
-  async send(text:string,mode:'reply'|'intro'='reply',attachment?:{kind:'image'|'audio'|'pdf'|'note';count:number}){
+  async send(text:string,mode:'reply'|'intro'='reply',attachment?:{kind:'image'|'audio'|'pdf'|'note';count:number;ids?:string[]}){
     // 文章なしで資料だけ送ったときは、モデルにだけ、既定の依頼を渡す(画面には出さない)。
     const asked=text.trim(),prompt=asked||(attachment?'添付した資料の内容を、要点がわかるようにまとめて。':'');text=prompt
     if(this.sending)throw Error('WEB_返信を待つか、生成を中断してください。')
@@ -181,8 +181,11 @@ export class AIController {
     if(this.materialWaitReason)throw Error('WEB_'+this.materialWaitReason)
     if(mode==='reply'&&(!text.trim()||text.length>2000))throw Error('WEB_メッセージは1〜2,000文字で入力してください。')
     const pick=()=>this.materials.filter(x=>this.selected.has(x.id)&&x.remote&&['ready','partial_ready'].includes(x.remote.status)).map(x=>x.remote!.sourceId)
+    const attachmentIds=[...new Set(attachment?.ids??[])]
+    if(attachmentIds.length>8)throw Error('WEB_一度に添付できる資料は8件までです。')
     let sourceIds=pick()
     const project=mode==='reply'&&this.referenceMode!=='lecture'
+    if(project&&attachmentIds.length)throw Error('WEB_新しい添付を使うには「今回の授業回」を選んで送信してください。')
     if(project&&!this.projectAvailable)throw Error('WEB_授業横断の参照は、backend更新が完了するまで利用できません。')
     if(project&&!this.analyzingCount&&!this.scopedMaterials.some(row=>row.state==='ready'&&row.remote))throw Error('WEB_選択した参照範囲に解析完了の資料がありません。')
     const referenceScope:ProjectScope|undefined=project?{protocol:'course-project-v1',mode:this.referenceMode as 'course'|'lectures',...(this.referenceMode==='lectures'?{dayIDs:[...this.referenceDayIDs]}:{})}:undefined
@@ -207,8 +210,20 @@ export class AIController {
         sourceIds=pick().slice(0,8);requestSourceIds=project?[]:sourceIds;message.sourceIds=requestSourceIds
         const sent=this.messages.find(x=>x.role==='user'&&x.createdAt===now);if(sent){sent.sourceIds=requestSourceIds;await this.store.putMessage(sent)}
       }
+      if(attachmentIds.length){
+        const attached=attachmentIds.map(id=>this.materials.find(row=>row.id===id))
+        if(attached.some(row=>!row||row.wantsDeletion||row.state!=='ready'||!row.remote||!['ready','partial_ready'].includes(row.remote.status)))throw Error('WEB_添付資料を解析できませんでした。資料の状態を確認し、再送してください。')
+        // Reserve capacity for the exact attachments submitted with this message.
+        for(const id of attachmentIds)this.selected.delete(id)
+        while(this.selected.size+attachmentIds.length>8)this.selected.delete(this.selected.values().next().value!)
+        for(const id of attachmentIds)this.selected.add(id)
+        const required=attached.map(row=>row!.remote!.sourceId)
+        requestSourceIds=[...required,...pick().filter(id=>!required.includes(id))].slice(0,8)
+        message.sourceIds=requestSourceIds
+        const sent=this.messages.find(x=>x.role==='user'&&x.createdAt===now);if(sent){sent.sourceIds=requestSourceIds;await this.store.putMessage(sent)}
+      }
       const recent=turns.slice(-12);if(recent[0]?.role==='assistant')recent.shift()
-      const request={...(referenceScope?{referenceScope}:{}),...(this.syllabus?{syllabus:this.syllabus}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds:requestSourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
+      const request={...(referenceScope?{referenceScope}:{}),...(this.syllabus?{syllabus:this.syllabus}:{}),...(attachmentIds.length?{materialExpected:true,requiredSourceIds:requestSourceIds.slice(0,attachmentIds.length)}:{}),context:this.context,courseOfferingId:offeringId(this.context),sourceIds:requestSourceIds,turns:mode==='intro'?[]:recent,mode,requestId:crypto.randomUUID(),generationId:crypto.randomUUID()}
       message.resumeRequest=request
       const response=await this.backend.chat(request,reply.signal,delta=>{message!.text+=delta;this.notifyStream()},progress=>{message!.progress=progress;this.notify()})
       reply.signal.throwIfAborted();message.text=response.text;message.recognition=response.recognition;message.references=response.references;if(response.references)message.sourceIds=response.references.sources.map(s=>s.sourceId);message.state='done';message.canResume=false;message.progress=undefined;message.error=undefined;return true

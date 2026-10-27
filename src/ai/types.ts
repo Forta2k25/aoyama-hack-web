@@ -32,8 +32,8 @@ export interface ChatTurn { role: 'user' | 'assistant'; text: string }
 export interface ChatProgress {status:'generating'|'continuing'|'retrying';supported?:boolean;retryCount?:number;continuationCount?:number}
 export interface ProjectScope {protocol:'course-project-v1';mode:'course'|'lectures';dayIDs?:number[]}
 export interface ProjectReferences {protocol:'course-project-v1';courseOfferingId:string;scope:ProjectScope;targetSources:number;readySources:number;processingSources:number;failedSources:number;partialSources:number;changedSources:number;noTextSources:number;excerpted:boolean;characters:number;sources:{sourceId:string;title:string;dayID?:number;lectureId?:string;partial:boolean;locators:Record<string,number>[];excerpted:boolean}[]}
-export interface ChatRequest { referenceScope?:ProjectScope;syllabus?:string;streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; turns: ChatTurn[]; mode: 'reply' | 'intro' }
-export interface ChatReply { text: string; recognition?: Recognition; references?:ProjectReferences }
+export interface ChatRequest { referenceScope?:ProjectScope;syllabus?:string;streamProtocol?:string;requestId?:string;generationId?:string;resume?:{protocol:string;partial:string};context: CourseContext; courseOfferingId?: string; sourceIds: string[]; requiredSourceIds?:string[]; materialExpected?:boolean; turns: ChatTurn[]; mode: 'reply' | 'intro' }
+export interface ChatReply { text: string; recognition?: Recognition; references?:ProjectReferences; includedRequiredSourceIds?:string[] }
 export interface AIBackend {
   readonly demo: boolean
   readonly projectContextProtocol?:string
